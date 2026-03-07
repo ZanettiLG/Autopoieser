@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 export const tasksApi = createApi({
   reducerPath: 'tasksApi',
   baseQuery: fetchBaseQuery({ baseUrl: '/' }),
-  tagTypes: ['Task', 'TaskList', 'TaskComments'],
+  tagTypes: ['Task', 'TaskList', 'TaskComments', 'WorkerStatus'],
   endpoints: (builder) => ({
     getTasks: builder.query({
       query: () => '/api/tasks',
@@ -23,6 +23,10 @@ export const tasksApi = createApi({
       query: (id) => `/api/tasks/${id}/log`,
       providesTags: (_result, _err, id) => [{ type: 'Task', id }],
     }),
+    getWorkerStatus: builder.query({
+      query: () => '/api/worker/status',
+      providesTags: ['WorkerStatus'],
+    }),
     getTaskComments: builder.query({
       query: (id) => `/api/tasks/${id}/comments`,
       providesTags: (_result, _err, id) => [{ type: 'TaskComments', id }],
@@ -41,6 +45,29 @@ export const tasksApi = createApi({
         method: 'PUT',
         body,
       }),
+      async onQueryStarted({ id, ...body }, { dispatch, queryFulfilled }) {
+        const patches = [];
+        const listPatch = dispatch(
+          tasksApi.util.updateQueryData('getTasks', undefined, (draft) => {
+            const task = draft?.find((t) => t.id === id);
+            if (task && body.status != null) task.status = body.status;
+          })
+        );
+        patches.push(listPatch);
+        if (body.status != null) {
+          const taskPatch = dispatch(
+            tasksApi.util.updateQueryData('getTask', id, (draft) => {
+              if (draft) draft.status = body.status;
+            })
+          );
+          patches.push(taskPatch);
+        }
+        try {
+          await queryFulfilled;
+        } catch {
+          patches.forEach((p) => p.undo());
+        }
+      },
       invalidatesTags: (_result, _err, { id }) => [
         { type: 'Task', id },
         { type: 'TaskList', id: 'LIST' },
@@ -85,6 +112,7 @@ export const {
   useGetTaskQuery,
   useGetTaskLogQuery,
   useGetTaskCommentsQuery,
+  useGetWorkerStatusQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,

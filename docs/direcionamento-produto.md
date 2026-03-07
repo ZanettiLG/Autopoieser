@@ -8,7 +8,7 @@ Documento de pesquisa e decisões para o sistema de tarefas pessoal em que o pro
 
 - **O quê**: Sistema de tarefas pessoal para o programador, com execução assíncrona por um agente (Cursor).
 - **Quem**: Programador que enfileira tarefas, acompanha o pipeline (status) e quer ver o progresso e o raciocínio do agente por tarefa.
-- **Visibilidade**: (1) Pipeline no board Kanban (open → queued → in_progress → done); (2) Log/progresso do agente por tarefa (pensamentos, etapas, conclusão ou erro).
+- **Visibilidade**: (1) Pipeline no board Kanban (open → queued → in_progress → done | rejected); em falha do agente a tarefa vai para a coluna Rejeitada e o usuário vê o motivo em `failure_reason` no detalhe; (2) Log/progresso do agente por tarefa (pensamentos, etapas, conclusão ou erro).
 
 ---
 

@@ -2,6 +2,8 @@
 
 A experiência principal do app é o **board Kanban** (estilo Trello). Ver [jornada-usuario-kanban.md](jornada-usuario-kanban.md) para a jornada detalhada do Kanban. Este documento descreve o fluxo original baseado em lista e rotas.
 
+> **Nota:** Este doc descreve o fluxo legado (vista lista). O pipeline atual do sistema tem **5 status**: `open`, `queued`, `in_progress`, `done`, `rejected`.
+
 ## 1.1 Fluxo principal
 
 ```mermaid
@@ -32,7 +34,7 @@ flowchart LR
 
 ## 1.3 Regras e observações
 
-- **Lista**: exibir título, status (Aberta / Em progresso / Concluída) e opcionalmente data de atualização.
+- **Lista**: exibir título, status (Aberta / Na fila / Em progresso / Concluída / Rejeitada) e opcionalmente data de atualização.
 - **Formulário**: título obrigatório; status (select); corpo em Markdown (textarea ou editor).
 - **Detalhe**: conteúdo da tarefa deve ser exibido como Markdown renderizado (não apenas texto cru).
 - **Exclusão**: sempre com confirmação (dialog/modal).

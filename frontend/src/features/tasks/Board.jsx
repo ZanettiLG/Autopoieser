@@ -15,6 +15,7 @@ import Column from './Column';
 import TaskCard from './TaskCard';
 import TaskDetailOverlay from './TaskDetailOverlay';
 import TaskFormOverlay from './TaskFormOverlay';
+import WorkerStatusIndicator from './WorkerStatusIndicator';
 
 /**
  * Board Kanban: 5 colunas por status (open, queued, in_progress, done, rejected), cards arrastáveis, overlays para detalhe e formulário.
@@ -117,6 +118,7 @@ function Board({ onSnackbar, openTaskId }) {
           <Typography variant="h6" component="span" sx={{ flexGrow: 1 }}>
             Tarefas
           </Typography>
+          <WorkerStatusIndicator />
         </Toolbar>
       </AppBar>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

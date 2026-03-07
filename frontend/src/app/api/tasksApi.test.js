@@ -7,12 +7,13 @@ describe('tasksApi', () => {
     expect(tasksApi.reducerPath).toBe('tasksApi');
   });
 
-  it('has getTasks, getTask, getTaskLog, getTaskComments, createTask, updateTask, deleteTask, queueTask, addComment endpoints', () => {
+  it('has getTasks, getTask, getTaskLog, getTaskComments, getWorkerStatus, createTask, updateTask, deleteTask, queueTask, addComment endpoints', () => {
     const names = Object.keys(tasksApi.endpoints);
     expect(names).toContain('getTasks');
     expect(names).toContain('getTask');
     expect(names).toContain('getTaskLog');
     expect(names).toContain('getTaskComments');
+    expect(names).toContain('getWorkerStatus');
     expect(names).toContain('createTask');
     expect(names).toContain('updateTask');
     expect(names).toContain('deleteTask');

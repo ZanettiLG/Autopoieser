@@ -23,6 +23,7 @@ const STATUS_OPTIONS = [
   { value: 'queued', label: 'Na fila' },
   { value: 'in_progress', label: 'Em progresso' },
   { value: 'done', label: 'Concluída' },
+  { value: 'rejected', label: 'Rejeitada' },
 ];
 
 function TaskForm({ onSnackbar }) {

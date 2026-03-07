@@ -172,6 +172,7 @@ function TaskDetailOverlay({ taskId, open, onClose, onEdit, onSnackbar }) {
     try {
       await queueTask(taskId).unwrap();
       onSnackbar?.({ message: 'Tarefa enfileirada', severity: 'success' });
+      onClose?.();
     } catch (err) {
       onSnackbar?.({
         message: err?.data?.error ?? 'Falha ao enfileirar',

@@ -128,3 +128,4 @@ No board: **clique** em um card para abrir o detalhe (drawer); **arraste** o car
 - **docs/jornada-usuario-kanban.md** – jornada do usuário no board Kanban.
 - **docs/jornada-usuario-tarefas.md** – mapa da jornada (lista original).
 - **docs/pesquisa-jornada-tarefas.md** – decisões de arquitetura do frontend.
+- **docs/acessibilidade-responsividade.md** – responsividade do board e recomendações de acessibilidade.
