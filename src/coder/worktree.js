@@ -5,7 +5,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 
 const BRANCH_PREFIX = "agent/task-";
 
@@ -21,8 +21,7 @@ function ensureIsGitRepo(repoRoot) {
 }
 
 function runGit(repoRoot, args, options = {}) {
-  const cmd = ["git", ...args].join(" ");
-  return execSync(cmd, {
+  return execFileSync("git", args, {
     encoding: "utf8",
     cwd: repoRoot,
     ...options,

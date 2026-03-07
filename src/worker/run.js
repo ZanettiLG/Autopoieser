@@ -60,6 +60,7 @@ async function processNextTask() {
     tasks.updateTask(task.id, { status: "in_progress" });
     tasks.appendEvent(task.id, { type: "worker_start", text: "Worker started task." });
     tasks.appendEvent(task.id, { type: "started", text: "Agent started." });
+    broadcastTaskUpdated(task.id);
 
     if (!isAgentInPath()) {
       logError("Binary 'agent' not found in PATH");
