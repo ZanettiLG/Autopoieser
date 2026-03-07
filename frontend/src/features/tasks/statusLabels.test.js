@@ -18,6 +18,10 @@ describe('statusLabels', () => {
     expect(getStatusLabel('queued')).toBe('Na fila');
   });
 
+  it('returns correct label for rejected', () => {
+    expect(getStatusLabel('rejected')).toBe('Rejeitada');
+  });
+
   it('returns raw value for unknown status', () => {
     expect(getStatusLabel('unknown')).toBe('unknown');
   });
@@ -28,11 +32,12 @@ describe('statusLabels', () => {
       queued: 'Na fila',
       in_progress: 'Em progresso',
       done: 'Concluída',
+      rejected: 'Rejeitada',
     });
   });
 
-  it('STATUS_ORDER has four columns in pipeline order', () => {
-    expect(STATUS_ORDER).toEqual(['open', 'queued', 'in_progress', 'done']);
+  it('STATUS_ORDER has five columns in pipeline order', () => {
+    expect(STATUS_ORDER).toEqual(['open', 'queued', 'in_progress', 'done', 'rejected']);
   });
 
   it('groupTasksByStatus returns empty groups when no tasks', () => {
@@ -41,12 +46,14 @@ describe('statusLabels', () => {
       queued: [],
       in_progress: [],
       done: [],
+      rejected: [],
     });
     expect(groupTasksByStatus(undefined)).toEqual({
       open: [],
       queued: [],
       in_progress: [],
       done: [],
+      rejected: [],
     });
   });
 
@@ -63,6 +70,18 @@ describe('statusLabels', () => {
     expect(out.done[0].id).toBe(2);
     expect(out.queued).toHaveLength(0);
     expect(out.in_progress).toHaveLength(0);
+    expect(out.rejected).toHaveLength(0);
+  });
+
+  it('groupTasksByStatus puts rejected tasks in rejected group', () => {
+    const tasks = [
+      { id: 1, status: 'rejected', title: 'X', failure_reason: 'Erro' },
+      { id: 2, status: 'done', title: 'Y' },
+    ];
+    const out = groupTasksByStatus(tasks);
+    expect(out.rejected).toHaveLength(1);
+    expect(out.rejected[0].id).toBe(1);
+    expect(out.done).toHaveLength(1);
   });
 
   it('groupTasksByStatus treats unknown status as open', () => {

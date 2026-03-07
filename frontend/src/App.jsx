@@ -1,6 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { Snackbar, Alert } from '@mui/material';
+import { io } from 'socket.io-client';
+import { tasksApi } from './app/api/tasksApi';
 import Board from './features/tasks/Board';
 
 function BoardWithDeepLink({ onSnackbar }) {
@@ -9,7 +12,35 @@ function BoardWithDeepLink({ onSnackbar }) {
 }
 
 function App() {
+  const dispatch = useDispatch();
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
+  useEffect(() => {
+    const socket = io(window.location.origin, { path: '/socket.io' });
+    socket.on('task:updated', (data) => {
+      if (data?.id != null) {
+        dispatch(
+          tasksApi.util.invalidateTags([
+            { type: 'Task', id: data.id },
+            { type: 'TaskList', id: 'LIST' },
+          ])
+        );
+      }
+    });
+    socket.on('task:deleted', (data) => {
+      if (data?.id != null) {
+        dispatch(
+          tasksApi.util.invalidateTags([
+            { type: 'Task', id: data.id },
+            { type: 'TaskList', id: 'LIST' },
+          ])
+        );
+      }
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [dispatch]);
 
   const showSnackbar = useCallback(({ message, severity = 'info' }) => {
     setSnackbar({ open: true, message, severity });

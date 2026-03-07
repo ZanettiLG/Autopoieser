@@ -6,7 +6,7 @@ Aplicação de **tarefas** com conteúdo em Markdown e **fila de processos**: ca
 
 - **CRUD de tarefas**: título, status e corpo em Markdown; metadados no SQLite, conteúdo em arquivos `.md` em `./tasks`.
 - **Fila**: ao enfileirar uma tarefa (status `queued`), um **worker** consome a fila e roda o agente para essa tarefa, com workspace e “chat” próprios.
-- **Frontend**: board **Kanban** (estilo Trello) com 4 colunas por status; cards arrastáveis entre colunas; detalhe e formulário em overlay (drawer/modal). Criar, editar, excluir e enfileirar sem sair do board.
+- **Frontend**: board **Kanban** (estilo Trello) com 5 colunas por status; cards arrastáveis entre colunas; detalhe e formulário em overlay (drawer/modal). Atualização em tempo real via Socket.IO. Criar, editar, excluir e enfileirar sem sair do board.
 
 ## Stack
 
@@ -42,6 +42,7 @@ WORKER_POLL_MS=5000
 - `CURSOR_API_KEY` – obrigatória para o worker rodar o agente.
 - `PORT` – porta do servidor Express (padrão 3000).
 - `WORKER_POLL_MS` – intervalo de polling da fila em ms (padrão 5000).
+- `SERVER_URL` – (opcional) URL do servidor para o worker notificar atualizações em tempo real (padrão `http://localhost:PORT`).
 
 ## Como rodar
 
@@ -105,6 +106,7 @@ WORKER_POLL_MS=5000
 | `queued`      | Na fila (aguardando o worker)        |
 | `in_progress` | Sendo processada pelo agente        |
 | `done`        | Concluída                            |
+| `rejected`    | Rejeitada (falha do agente; ver `failure_reason` no detalhe) |
 
 No board: **clique** em um card para abrir o detalhe (drawer); **arraste** o card para outra coluna para mudar o status; use **Adicionar card** numa coluna para criar tarefa naquele status; no detalhe, use **Enfileirar** (se aberta), **Editar** ou **Excluir**. O link direto `/tasks/:id` abre o board com o detalhe dessa tarefa.
 

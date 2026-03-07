@@ -28,11 +28,14 @@ agent-coder/
 │   │   ├── index.js       # Rotas /api/tasks e estáticos
 │   │   └── run.js         # Entry: npm run server
 │   ├── tasks/             # Lógica de tarefas
-│   │   ├── index.js       # createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued
-│   │   ├── db.js          # SQLite (metadados: id, title, status, created_at, updated_at)
-│   │   └── storage.js     # Leitura/escrita de .md em ./tasks/{id}.md
+│   │   ├── index.js       # createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued, appendEvent, getTaskLog
+│   │   ├── db.js          # SQLite (metadados: id, title, status, failure_reason?, created_at, updated_at)
+│   │   ├── storage.js     # Leitura/escrita de .md em ./tasks/{id}.md
+│   │   └── taskLog.js     # appendEvent(taskId, event), getTaskLog(taskId) – NDJSON em tasks/workspaces/{id}/agent.log
 │   ├── worker/            # Consumidor da fila
-│   │   └── run.js         # Entry: npm run worker; poll → pega queued → in_progress → agente → done
+│   │   ├── run.js         # Entry: npm run worker; poll → pega queued → in_progress → agente → done
+│   │   ├── logger.js      # Log estruturado [worker] + timestamp + nível; buffer recentLogLines
+│   │   └── workerStatus.js # Persiste data/worker-status.json para GET /api/worker/status
 │   └── coder/             # Integração com agente (Cursor)
 │       ├── index.js       # createCoder(options), default coder
 │       └── providers/     # BaseCoder, CursorCoder (spawn do CLI)
@@ -65,27 +68,39 @@ agent-coder/
 
 - `GET /api/tasks` – lista (metadados, sem body).
 - `GET /api/tasks/:id` – uma tarefa (com body).
+- `GET /api/tasks/:id/log` – log de eventos do agente para a tarefa (array NDJSON: started, chunk, done, error, worker_start, worker_end).
 - `POST /api/tasks` – criar; body: `{ title, body?, status? }`.
-- `PUT /api/tasks/:id` – atualizar; body: `{ title?, body?, status? }`.
+- `PUT /api/tasks/:id` – atualizar; body: `{ title?, body?, status?, failure_reason? }`.
 - `DELETE /api/tasks/:id` – excluir.
 - `POST /api/tasks/:id/queue` – enfileirar (status → `queued`).
+- `POST /api/internal/broadcast` – interno: emite evento Socket.IO (body `{ event, data }`); **apenas localhost** (403 fora).
+- `GET /api/worker/status` – status do worker: `alive` (último poll &lt; 60s), `lastPollAt`, `lastTaskId`, `lastTaskStatus`, `lastTaskAt`, `lastError`, `recentLogLines` (últimas ~100 linhas do log do worker). Dados lidos de `data/worker-status.json` (atualizado pelo worker).
 
-Status: `open`, `queued`, `in_progress`, `done`.
+Status: `open`, `queued`, `in_progress`, `done`, `rejected`. Quando o worker falha, o status vai para `rejected` e a justificativa fica em `failure_reason` (resposta de `GET`/`PUT` inclui o campo quando existir).
+
+O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, task }`) e `task:deleted` (payload `{ id }`). O worker notifica o servidor via `POST /api/internal/broadcast` após alterar uma tarefa (done/rejected), para o frontend atualizar em tempo real.
 
 ---
 
 ## 5. Fila e worker
 
 - Tarefas com status **`queued`** são consumidas pelo worker (polling; intervalo configurável por `WORKER_POLL_MS`).
-- Para cada tarefa: status → `in_progress`, workspace `tasks/workspaces/{taskId}` criado, **novo coder** via `createCoder({ workspace })`, prompt = corpo da tarefa (ou título); ao terminar → `done`, em erro → `open`.
-- Cada execução do agente é **contexto limpo** (outro “chat”): um coder por tarefa, workspace isolado.
+- Para cada tarefa: status → `in_progress`, **appendEvent(taskId, { type: 'started' })**, workspace `tasks/workspaces/{taskId}` criado, **novo coder** via `createCoder({ workspace, outputFormat: 'stream' })`, **code(prompt, { onChunk, onDone })** com callbacks que chamam **appendEvent** (chunk, done, error). Ao terminar → `done`, em erro → `rejected` e evento `error` (e `failure_reason` na tarefa).
+- Cada execução do agente é **contexto limpo** (outro “chat”): um coder por tarefa, workspace isolado. Log do agente em `tasks/workspaces/{taskId}/agent.log` (NDJSON).
+
+**Logs e diagnóstico do worker**
+
+- **Console do worker**: saída com prefixo `[worker]`, timestamp ISO e nível (`info` ou `error`). Ex.: `[worker] 2025-03-07T12:00:00.000Z info Listening for queued tasks (poll every 5000 ms)`.
+- **Log por tarefa**: `tasks/workspaces/{taskId}/agent.log` — NDJSON, uma linha por evento. Eventos: `started` (agente iniciou), `chunk` (trecho de saída), `done` (agente finalizou), `error` (falha; pode ter `text`, `stack`, `stderr`), `worker_start` (worker começou a tarefa), `worker_end` (worker terminou; campo `durationMs`). Em falha, o último `error` contém a mensagem e, quando disponível, trecho de stderr do processo do agente.
+- **Status do worker**: o worker grava `data/worker-status.json` a cada poll e ao concluir/rejeitar tarefa. O servidor expõe `GET /api/worker/status` para ver se o worker está vivo (último poll &lt; 60s), última tarefa processada e últimas linhas do log em memória (`recentLogLines`).
 
 ---
 
 ## 6. Coder (agente)
 
-- `src/coder/index.js`: exporta o coder default e **`createCoder(options)`**.
-- `createCoder({ workspace })` é usado pelo worker para isolar por tarefa.
+- `src/coder/index.js`: exporta o coder default e **`createCoder(options)`**. Opções: `workspace`, `outputFormat` ('json' padrão ou 'stream').
+- **code(prompt, callbacks)**: callbacks opcionais `{ onChunk?(text), onDone?(result) }` para observar saída (Observer). Modo **stream** (outputFormat === 'stream'): lê stdout por linhas, emite onChunk por linha; onDone ao final. Modo **json** (batch): uma linha JSON, onDone(result), resolve(response).
+- **-p (debug)**: flag opcional em `cursor.js`; usar só para debug local (mais verbosidade no CLI). Ver `docs/direcionamento-produto.md`.
 - O coder usa o CLI do Cursor (`agent --trust ...`); ver `src/coder/providers/cursor.js` e `base.js`.
 
 ---
@@ -93,11 +108,11 @@ Status: `open`, `queued`, `in_progress`, `done`.
 ## 7. Frontend
 
 - **Stack**: React, MUI, Redux Toolkit, RTK Query, react-router-dom, react-markdown, remark-gfm, @dnd-kit (core, sortable, utilities) para drag-and-drop.
-- **Vista principal**: **Board Kanban** (rota `/`) com 4 colunas por status (Aberta, Na fila, Em progresso, Concluída). Cards arrastáveis entre colunas; clique no card abre **detalhe em drawer**; “Adicionar card” por coluna abre **formulário em modal**. Mover card = `PUT /api/tasks/:id` com novo `status`.
+- **Vista principal**: **Board Kanban** (rota `/`) com 5 colunas por status (Aberta, Na fila, Em progresso, Concluída, Rejeitada). Cards arrastáveis entre colunas; clique no card abre **detalhe em drawer**; “Adicionar card” por coluna abre **formulário em modal**. Mover card = `PUT /api/tasks/:id` com novo `status`. Tarefas rejeitadas exibem `failure_reason` no detalhe.
 - **Rotas**: `/` (board), `/tasks/:id` (board com detalhe da tarefa aberto – deep link).
 - **API**: `frontend/src/app/api/tasksApi.js` (baseUrl `/`; em dev o Vite faz proxy para o Express).
-- **Status**: labels e chips para `open`, `queued`, `in_progress`, `done`; botão “Enfileirar” no overlay de detalhe quando status é `open`.
-- **Componentes**: `Board.jsx` (DndContext, colunas), `Column.jsx` (useDroppable), `DraggableCard.jsx` / `TaskCard.jsx`, `TaskDetailOverlay.jsx` (drawer), `TaskFormOverlay.jsx` (modal). Agrupamento por status: `groupTasksByStatus` e `STATUS_ORDER` em `statusLabels.js`.
+- **Status**: labels e chips para `open`, `queued`, `in_progress`, `done`, `rejected`; botão “Enfileirar” no overlay de detalhe quando status é `open`. Atualização em tempo real via Socket.IO (invalidação de cache RTK Query nos eventos `task:updated` e `task:deleted`).
+- **Componentes**: `Board.jsx` (DndContext, colunas), `Column.jsx` (useDroppable), `DraggableCard.jsx` / `TaskCard.jsx`, `TaskDetailOverlay.jsx` (drawer com seção "Progresso do agente" – log via `getTaskLog`, polling a cada 3 s quando status = in_progress), `TaskFormOverlay.jsx` (modal). API: `getTaskLog` em `tasksApi.js`. Agrupamento por status: `groupTasksByStatus` e `STATUS_ORDER` em `statusLabels.js`.
 
 ---
 
@@ -114,13 +129,14 @@ Status: `open`, `queued`, `in_progress`, `done`.
 
 ## 9. Ambiente
 
-- **Variáveis**: `CURSOR_API_KEY` (config do coder); `PORT` (servidor); `WORKER_POLL_MS` (opcional, intervalo do worker em ms).
+- **Variáveis**: `CURSOR_API_KEY` (config do coder); `PORT` (servidor); `WORKER_POLL_MS` (opcional, intervalo do worker em ms); `SERVER_URL` (opcional, URL do servidor para o worker notificar broadcast, padrão `http://localhost:PORT`).
 - **Arquivo `.env`** na raiz (não versionado).
 
 ---
 
 ## 10. Referências no repositório
 
+- Direcionamento do produto e visibilidade do agente: `docs/direcionamento-produto.md`.
 - Jornada do usuário (lista): `docs/jornada-usuario-tarefas.md`.
 - Jornada Kanban: `docs/jornada-usuario-kanban.md`.
 - Pesquisa e decisões (RTK Query, MUI, etc.): `docs/pesquisa-jornada-tarefas.md`.

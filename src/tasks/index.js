@@ -9,6 +9,7 @@ const {
   deleteTaskMeta,
 } = require("./db");
 const { readTaskBody, writeTaskBody, deleteTaskFile } = require("./storage");
+const { appendEvent, getTaskLog } = require("./taskLog");
 
 function createTask({ title, body = "", status = "open" }) {
   const db = getDb();
@@ -32,12 +33,12 @@ function listTasks() {
   return listTasksMeta(db);
 }
 
-function updateTask(id, { title, body, status }) {
+function updateTask(id, { title, body, status, failure_reason }) {
   const db = getDb();
   const meta = getTaskMeta(db, Number(id));
   if (!meta) return null;
-  if (title !== undefined || status !== undefined) {
-    updateTaskMeta(db, id, { title, status });
+  if (title !== undefined || status !== undefined || failure_reason !== undefined) {
+    updateTaskMeta(db, id, { title, status, failure_reason });
   }
   if (body !== undefined) {
     writeTaskBody(meta.id, body);
@@ -74,4 +75,6 @@ module.exports = {
   deleteTask,
   enqueueTask,
   getNextQueued,
+  appendEvent,
+  getTaskLog,
 };

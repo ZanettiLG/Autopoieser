@@ -3,10 +3,11 @@ export const STATUS_LABELS = {
   queued: 'Na fila',
   in_progress: 'Em progresso',
   done: 'Concluída',
+  rejected: 'Rejeitada',
 };
 
 /** Ordem das colunas no board Kanban (fluxo do pipeline). */
-export const STATUS_ORDER = ['open', 'queued', 'in_progress', 'done'];
+export const STATUS_ORDER = ['open', 'queued', 'in_progress', 'done', 'rejected'];
 
 export function getStatusLabel(status) {
   return STATUS_LABELS[status] ?? status;
@@ -18,7 +19,7 @@ export function getStatusLabel(status) {
  * @returns {Record<string, typeof tasks>}
  */
 export function groupTasksByStatus(tasks) {
-  const groups = { open: [], queued: [], in_progress: [], done: [] };
+  const groups = { open: [], queued: [], in_progress: [], done: [], rejected: [] };
   if (!tasks?.length) return groups;
   for (const task of tasks) {
     const status = task.status in groups ? task.status : 'open';

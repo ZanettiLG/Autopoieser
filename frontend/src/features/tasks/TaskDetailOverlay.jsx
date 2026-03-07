@@ -20,7 +20,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
-import { useGetTaskQuery, useDeleteTaskMutation, useQueueTaskMutation } from '../../app/api/tasksApi';
+import { useGetTaskQuery, useGetTaskLogQuery, useDeleteTaskMutation, useQueueTaskMutation } from '../../app/api/tasksApi';
 import { getStatusLabel } from './statusLabels';
 
 /**
@@ -30,6 +30,10 @@ import { getStatusLabel } from './statusLabels';
 function TaskDetailOverlay({ taskId, open, onClose, onEdit, onSnackbar }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { data: task, isLoading, error } = useGetTaskQuery(taskId, { skip: !open || !taskId });
+  const { data: log = [], isLoading: logLoading } = useGetTaskLogQuery(taskId, {
+    skip: !open || !taskId,
+    refetchInterval: task?.status === 'in_progress' ? 3000 : false,
+  });
   const [deleteTask, { isLoading: isDeleting }] = useDeleteTaskMutation();
   const [queueTask, { isLoading: isQueuing }] = useQueueTaskMutation();
 
@@ -95,7 +99,9 @@ function TaskDetailOverlay({ taskId, open, onClose, onEdit, onSnackbar }) {
                     ? 'primary'
                     : task.status === 'queued'
                       ? 'warning'
-                      : 'default'
+                      : task.status === 'rejected'
+                        ? 'error'
+                        : 'default'
               }
             />
           </Box>
@@ -125,6 +131,11 @@ function TaskDetailOverlay({ taskId, open, onClose, onEdit, onSnackbar }) {
             </Button>
           </Box>
         </Box>
+        {task.status === 'rejected' && task.failure_reason && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Falha: {task.failure_reason}
+          </Alert>
+        )}
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography component="div" sx={{ '& p': { mb: 1 }, '& ul, & ol': { pl: 2 } }}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -132,6 +143,46 @@ function TaskDetailOverlay({ taskId, open, onClose, onEdit, onSnackbar }) {
             </ReactMarkdown>
           </Typography>
         </Paper>
+
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Progresso do agente
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              maxHeight: 220,
+              overflow: 'auto',
+              bgcolor: 'grey.50',
+            }}
+          >
+            {logLoading && log.length === 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                Carregando…
+              </Typography>
+            ) : log.length === 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                Nenhum log ainda. Enfileire a tarefa para o agente executar.
+              </Typography>
+            ) : (
+              <Typography
+                component="pre"
+                variant="caption"
+                sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {log.map((ev, i) => {
+                  const line = ev.type === 'chunk' || ev.type === 'started' || ev.type === 'error'
+                    ? (ev.text ?? '')
+                    : ev.type === 'done'
+                      ? (ev.result != null ? `[done] ${JSON.stringify(ev.result)}` : '[done]')
+                      : `[${ev.type}] ${JSON.stringify(ev)}`;
+                  return line ? `${line}\n` : null;
+                }).filter(Boolean).join('')}
+              </Typography>
+            )}
+          </Paper>
+        </Box>
 
         <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
           <DialogTitle>Excluir tarefa?</DialogTitle>

@@ -21,14 +21,9 @@ import {
   useCreateTaskMutation,
   useUpdateTaskMutation,
 } from '../../app/api/tasksApi';
-import { getStatusLabel } from './statusLabels';
+import { STATUS_ORDER, getStatusLabel } from './statusLabels';
 
-const STATUS_OPTIONS = [
-  { value: 'open', label: 'Aberta' },
-  { value: 'queued', label: 'Na fila' },
-  { value: 'in_progress', label: 'Em progresso' },
-  { value: 'done', label: 'Concluída' },
-];
+const STATUS_OPTIONS = STATUS_ORDER.map((value) => ({ value, label: getStatusLabel(value) }));
 
 /**
  * Formulário de criar/editar tarefa em overlay (modal). Usado no board Kanban.

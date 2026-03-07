@@ -20,6 +20,12 @@ function getDb(dbPath = DEFAULT_DB_PATH) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
+  const hasFailureReason = db.prepare(
+    "SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'failure_reason'"
+  ).get();
+  if (!hasFailureReason) {
+    db.exec("ALTER TABLE tasks ADD COLUMN failure_reason TEXT");
+  }
   return db;
 }
 
@@ -37,7 +43,7 @@ function insertTask(db, { title, status = "open" }) {
   return result.lastInsertRowid;
 }
 
-function updateTaskMeta(db, id, { title, status }) {
+function updateTaskMeta(db, id, { title, status, failure_reason }) {
   const updates = [];
   const values = [];
   if (title !== undefined) {
@@ -47,6 +53,10 @@ function updateTaskMeta(db, id, { title, status }) {
   if (status !== undefined) {
     updates.push("status = ?");
     values.push(status);
+  }
+  if (failure_reason !== undefined) {
+    updates.push("failure_reason = ?");
+    values.push(failure_reason);
   }
   if (updates.length === 0) return;
   updates.push("updated_at = datetime('now')");

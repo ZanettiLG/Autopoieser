@@ -4,7 +4,9 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test src/tasks/taskLog.test.js src/coder/providers/cursor.test.js",
+    "test:frontend": "cd frontend && npm run test",
+    "test:coverage": "cd frontend && npm run test:coverage",
     "start": "node src/server/run.js",
     "server": "node src/server/run.js",
     "worker": "node src/worker/run.js",
@@ -19,6 +21,7 @@
     "better-sqlite3": "^11.6.0",
     "dotenv": "^17.3.1",
     "express": "^4.21.0",
-    "skills": "^1.4.4"
+    "skills": "^1.4.4",
+    "socket.io": "^4.8.0"
   }
 }

@@ -19,6 +19,10 @@ export const tasksApi = createApi({
       query: (id) => `/api/tasks/${id}`,
       providesTags: (_result, _err, id) => [{ type: 'Task', id }],
     }),
+    getTaskLog: builder.query({
+      query: (id) => `/api/tasks/${id}/log`,
+      providesTags: (_result, _err, id) => [{ type: 'Task', id }],
+    }),
     createTask: builder.mutation({
       query: (body) => ({
         url: '/api/tasks',
@@ -64,6 +68,7 @@ export const tasksApi = createApi({
 export const {
   useGetTasksQuery,
   useGetTaskQuery,
+  useGetTaskLogQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
