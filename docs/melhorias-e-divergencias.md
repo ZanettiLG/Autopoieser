@@ -4,9 +4,34 @@ Documento de pesquisa que cruza a base de código e a documentação do projeto,
 
 **Fontes cruzadas:** `docs/jornada-usuario-tarefas.md`, `docs/jornada-usuario-kanban.md`, `docs/direcionamento-produto.md`, `docs/pesquisa-jornada-tarefas.md`, `AGENTS.md`, `README.md`, código em `src/`, `frontend/src/`.
 
-**Método:** Leitura da documentação de produto e jornadas do usuário; inspeção do backend (server, tasks, worker), frontend (Board, overlays, API) e AGENTS.md; cruzamento para identificar onde a doc está atrás do código, onde há lacunas de UX e onde o produto pode evoluir.
-
 **Última revisão:** Março 2026 (validação contra código: rotas, status, componentes, API worker).
+
+---
+
+## 0. Metodologia da pesquisa
+
+1. **Leitura da documentação** de produto (direcionamento, jornadas do usuário, pesquisa de frontend) para extrair expectativas e decisões.
+2. **Inspeção do código**: backend (`src/server/index.js`, `src/tasks/`, `src/worker/`), frontend (`App.jsx`, Board, overlays, `tasksApi.js`, `statusLabels.js`), `AGENTS.md` e `README.md`.
+3. **Cruzamento**: para cada aspecto (colunas do board, status, rotas, componentes, API, fluxos), comparar o que a documentação descreve com o que o código implementa.
+4. **Visão usuário e produto**: mapear o que o usuário espera (jornada) vs o que o produto entrega (código) e identificar gaps (doc atrás do código, funcionalidades não documentadas, melhorias de UX).
+
+---
+
+## 0.1 Visão do usuário e do produto (expectativa vs realidade)
+
+Tabela resumida do que a **documentação/jornada** descreve como experiência esperada vs o que o **código/produto** entrega hoje. Gaps indicam onde a doc está desatualizada ou onde há oportunidade de melhorar.
+
+| Aspecto | Expectativa (documentação/jornada) | Realidade (código/produto) | Gap / Ação |
+|--------|-----------------------------------|----------------------------|------------|
+| **Colunas do board** | 4 colunas (Aberta, Na fila, Em progresso, Concluída) | 5 colunas (+ Rejeitada) | Doc desatualizada; atualizar jornada Kanban. |
+| **Pipeline** | open → queued → in_progress → done | + status `rejected` (falha do agente) | Doc desatualizada; incluir `rejected` no direcionamento. |
+| **Criação/edição** | Overlay no board (jornada Kanban) | Overlay (TaskFormOverlay, drawer/modal); rotas só `/` e `/tasks/:id` | Alinhado. Pesquisa ainda cita rotas `/tasks/new`, `/tasks/:id/edit` → atualizar pesquisa. |
+| **Componentes frontend** | Pesquisa cita TaskList, TaskDetail, TaskForm | App usa apenas Board, Column, TaskCard, TaskDetailOverlay, TaskFormOverlay | Pesquisa desatualizada; marcar lista como legado ou remover referência. |
+| **Rejeitada e failure_reason** | Não descrito na jornada Kanban | Coluna Rejeitada; detalhe exibe `failure_reason` | Incluir na jornada: cenário “quando o agente falha”. |
+| **Comentários e log do agente** | Não descritos na jornada | Detalhe tem seção Comentários e “Progresso do agente” (log, polling) | Incluir na jornada. |
+| **Deep link** | Mencionado em referências | Rota `/tasks/:id` abre board com detalhe da tarefa | Deixar explícito na tabela de cenários. |
+| **Status do worker** | — | API `GET /api/worker/status` existe; frontend não exibe | Melhoria: indicador “Worker ativo/inativo” na UI. |
+| **Drag-and-drop** | Otimistic update desejável | Atualização só após resposta da API | Melhoria: optimistic update. |
 
 ---
 
@@ -81,12 +106,12 @@ Documento de pesquisa que cruza a base de código e a documentação do projeto,
 
 | Onde | O que diz | Realidade no código |
 |------|------------|----------------------|
-| **pesquisa-jornada-tarefas.md** | "features/tasks/: TaskList.jsx, TaskDetail.jsx, TaskForm.jsx" | A aplicação **ativa** usa **Board.jsx**, Column, TaskCard, DraggableCard, **TaskDetailOverlay.jsx**, **TaskFormOverlay.jsx**. Os arquivos TaskList.jsx, TaskDetail.jsx e TaskForm.jsx existem no repositório mas **não são renderizados** por nenhuma rota do App (só há `/` e `/tasks/:id`, ambos com Board). |
-| **TaskForm.jsx** (vista lista) | STATUS_OPTIONS com 4 valores | Faltam **rejected** nas opções do select; o backend e o Kanban usam 5 status. |
+| **pesquisa-jornada-tarefas.md** | "features/tasks/: TaskList.jsx, TaskDetail.jsx, TaskForm.jsx" | A aplicação **ativa** usa **Board.jsx**, Column, TaskCard, DraggableCard, **TaskDetailOverlay.jsx**, **TaskFormOverlay.jsx**. As rotas do App são apenas `/` e `/tasks/:id` (ambas com Board). Os arquivos TaskList.jsx, TaskDetail.jsx e TaskForm.jsx **não existem** no frontend atual (ou são legado não referenciado); a pesquisa descreve uma estrutura antiga. |
+| **AGENTS.md** | — | Já lista a estrutura real: Board, Column, TaskCard, DraggableCard, TaskDetailOverlay, TaskFormOverlay, statusLabels. |
 
-**Impacto para o usuário:** Nenhum direto (a UI usada é o Kanban). Para quem lê a pesquisa, a estrutura parece ser lista; na prática a entrada é sempre o board. Código morto ou vista lista desativada pode gerar confusão em manutenção.
+**Impacto para o usuário:** Nenhum direto (a UI usada é o Kanban). Para quem lê a pesquisa, a estrutura parece ser lista; na prática a entrada é sempre o board.
 
-**Recomendação:** Na pesquisa, descrever a estrutura real (Board + overlays) como principal e marcar TaskList/TaskDetail/TaskForm como "vista lista (legado, não usado nas rotas atuais)" ou removê-los do código se não houver plano de uso. Se a vista lista for mantida, incluir `rejected` em TaskForm.jsx.
+**Recomendação:** Atualizar `pesquisa-jornada-tarefas.md`: descrever a estrutura real (Board + overlays) como principal e remover ou marcar TaskList/TaskDetail/TaskForm como "vista lista (legado, não implementada nas rotas atuais)". Se em algum branch existir TaskForm.jsx (vista lista), incluir `rejected` em STATUS_OPTIONS para alinhar ao backend.
 
 ---
 
@@ -172,7 +197,7 @@ Estes pontos existem no produto mas não estão (ou estão pouco) descritos na j
 ### Código (comentários e consistência)
 
 - [x] **Board.jsx:** Alterar comentário "4 colunas" para "5 colunas". **(feito)**
-- [ ] **TaskForm.jsx (vista lista):** Se a vista lista for mantida, adicionar status `rejected` em STATUS_OPTIONS para alinhar ao backend.
+- [ ] **TaskForm.jsx (vista lista):** Se em algum branch existir vista lista com TaskForm, adicionar status `rejected` em STATUS_OPTIONS para alinhar ao backend. No código atual (Board + overlays) não se aplica.
 
 ### Produto/UX (avaliar prioridade)
 
@@ -186,6 +211,7 @@ Estes pontos existem no produto mas não estão (ou estão pouco) descritos na j
 
 ## 6. Como usar este documento
 
+- **Visão rápida:** A tabela da seção **0.1 (Visão do usuário e do produto)** resume expectativa vs realidade e aponta gaps; use-a para priorizar correções.
 - **Prioridade:** Corrigir primeiro as divergências de **documentação** (seção 5), para que novos leitores e agentes vejam a realidade do produto (5 colunas, 5 status, overlay, rejeitada, comentários, log).
 - **Produto/UX:** As melhorias da seção 4 (worker na UI, optimistic update, feedback ao enfileirar, acessibilidade) devem ser priorizadas com o time; o **Roadmap.md** concentra os itens acionáveis.
 - **Revisão periódica:** Ao alterar fluxos, status ou componentes, revalidar este documento (cruzamento doc ↔ código) e atualizar a data em "Última revisão".
