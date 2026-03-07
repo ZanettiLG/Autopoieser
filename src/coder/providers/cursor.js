@@ -2,9 +2,9 @@ const BaseCoder = require("./base");
 const { cursorApiKey } = require("../../config");
 
 class CursorCoder extends BaseCoder {
-    constructor(options = defaultOptions) {
-        super(options);
-    }
+  constructor(options) {
+    super(options);
+  }
 
     command(prompt) {
         const debugFlag = this.options.debug ? " -p" : " ";

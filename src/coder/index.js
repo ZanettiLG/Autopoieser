@@ -1,10 +1,24 @@
+const path = require("path");
 const CursorCoder = require("./providers/cursor");
 
-const coder = new CursorCoder({
+const defaultWorkspace = path.join(process.cwd(), "..", "test");
+
+const defaultCoder = new CursorCoder({
+  model: "auto",
+  debug: false,
+  outputFormat: "json",
+  workspace: defaultWorkspace,
+});
+
+function createCoder(options = {}) {
+  return new CursorCoder({
     model: "auto",
     debug: false,
     outputFormat: "json",
-    workspace: "../test"
-});
+    workspace: defaultWorkspace,
+    ...options,
+  });
+}
 
-module.exports = coder;
+module.exports = defaultCoder;
+module.exports.createCoder = createCoder;

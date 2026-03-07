@@ -1,0 +1,128 @@
+# Agent Coder
+
+Aplicação de **tarefas** com conteúdo em Markdown e **fila de processos**: cada tarefa enfileirada é executada por uma thread do agente (Cursor) com contexto isolado.
+
+## O que faz
+
+- **CRUD de tarefas**: título, status e corpo em Markdown; metadados no SQLite, conteúdo em arquivos `.md` em `./tasks`.
+- **Fila**: ao enfileirar uma tarefa (status `queued`), um **worker** consome a fila e roda o agente para essa tarefa, com workspace e “chat” próprios.
+- **Frontend**: board **Kanban** (estilo Trello) com 4 colunas por status; cards arrastáveis entre colunas; detalhe e formulário em overlay (drawer/modal). Criar, editar, excluir e enfileirar sem sair do board.
+
+## Stack
+
+| Camada    | Tecnologia                    |
+|-----------|-------------------------------|
+| Backend   | Node.js, Express              |
+| Persistência | SQLite (metadados), `.md` em `./tasks` |
+| Frontend  | React, Vite, MUI, Redux Toolkit, RTK Query, @dnd-kit (drag-and-drop) |
+| Agente    | Integração com CLI do Cursor  |
+
+## Pré-requisitos
+
+- Node.js (recomendado LTS)
+- Variável `CURSOR_API_KEY` configurada (para o worker executar o agente)
+
+## Instalação
+
+```bash
+npm install
+cd frontend && npm install && cd ..
+```
+
+## Variáveis de ambiente
+
+Crie um arquivo `.env` na raiz:
+
+```env
+CURSOR_API_KEY=sua_chave_aqui
+PORT=3000
+WORKER_POLL_MS=5000
+```
+
+- `CURSOR_API_KEY` – obrigatória para o worker rodar o agente.
+- `PORT` – porta do servidor Express (padrão 3000).
+- `WORKER_POLL_MS` – intervalo de polling da fila em ms (padrão 5000).
+
+## Como rodar
+
+### Desenvolvimento
+
+1. **API** (um terminal):
+
+   ```bash
+   npm run server
+   ```
+
+   Servidor em `http://localhost:3000`.
+
+2. **Frontend** (outro terminal):
+
+   ```bash
+   cd frontend && npm run dev
+   ```
+
+   Vite sobe com proxy `/api` → Express. Acesse a URL exibida no terminal (ex.: `http://localhost:5173`).
+
+3. **Worker** (opcional, outro terminal) – para processar tarefas enfileiradas:
+
+   ```bash
+   npm run worker
+   ```
+
+### Produção
+
+1. Build do frontend:
+
+   ```bash
+   npm run build:frontend
+   ```
+
+2. Subir servidor (serve a API e o build do frontend):
+
+   ```bash
+   npm start
+   ```
+
+3. Se quiser processar a fila, em outro processo:
+
+   ```bash
+   npm run worker
+   ```
+
+## Scripts (raiz)
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm start` / `npm run server` | Inicia o servidor Express (API + estáticos do frontend, se existir build). |
+| `npm run worker` | Inicia o worker que consome a fila e executa o agente por tarefa. |
+| `npm run build:frontend` | Gera o build do frontend em `frontend/dist`. |
+
+## Status das tarefas
+
+| Status        | Significado                          |
+|---------------|--------------------------------------|
+| `open`        | Aberta                               |
+| `queued`      | Na fila (aguardando o worker)        |
+| `in_progress` | Sendo processada pelo agente        |
+| `done`        | Concluída                            |
+
+No board: **clique** em um card para abrir o detalhe (drawer); **arraste** o card para outra coluna para mudar o status; use **Adicionar card** numa coluna para criar tarefa naquele status; no detalhe, use **Enfileirar** (se aberta), **Editar** ou **Excluir**. O link direto `/tasks/:id` abre o board com o detalhe dessa tarefa.
+
+## Estrutura resumida
+
+```
+├── src/           # Backend: server, tasks, worker, coder
+├── frontend/      # App React (Vite)
+├── tasks/         # Arquivos .md das tarefas; workspaces em tasks/workspaces/
+├── data/          # SQLite (não versionado)
+├── docs/          # Documentação (jornada, pesquisa)
+├── AGENTS.md      # Guia para agentes de código
+└── package.json
+```
+
+## Documentação
+
+- **AGENTS.md** – guia para agentes e referência técnica (estrutura, API, convenções).
+- **docs/jornada-usuario-kanban.md** – jornada do usuário no board Kanban.
+- **docs/jornada-usuario-tarefas.md** – mapa da jornada (lista original).
+- **docs/pesquisa-jornada-tarefas.md** – decisões de arquitetura do frontend.
