@@ -7,6 +7,9 @@ const {
   listTasksMeta,
   getNextQueuedTask,
   deleteTaskMeta,
+  insertComment,
+  listCommentsByTaskId,
+  deleteCommentsByTaskId,
 } = require("./db");
 const { readTaskBody, writeTaskBody, deleteTaskFile } = require("./storage");
 const { appendEvent, getTaskLog } = require("./taskLog");
@@ -46,10 +49,29 @@ function updateTask(id, { title, body, status, failure_reason }) {
   return getTask(meta.id);
 }
 
+function getTaskComments(taskId) {
+  const db = getDb();
+  return listCommentsByTaskId(db, Number(taskId));
+}
+
+function addComment(taskId, { content, author = "user" }) {
+  const db = getDb();
+  const meta = getTaskMeta(db, Number(taskId));
+  if (!meta) return null;
+  const id = insertComment(db, {
+    task_id: meta.id,
+    author: author === "agent" ? "agent" : "user",
+    content: typeof content === "string" ? content : String(content),
+  });
+  const rows = listCommentsByTaskId(db, meta.id);
+  return rows.find((r) => r.id === id) || rows[rows.length - 1];
+}
+
 function deleteTask(id) {
   const db = getDb();
   const meta = getTaskMeta(db, Number(id));
   if (!meta) return false;
+  deleteCommentsByTaskId(db, meta.id);
   deleteTaskMeta(db, meta.id);
   deleteTaskFile(meta.id);
   return true;
@@ -77,4 +99,6 @@ module.exports = {
   getNextQueued,
   appendEvent,
   getTaskLog,
+  getTaskComments,
+  addComment,
 };

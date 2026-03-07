@@ -23,6 +23,7 @@ function App() {
           tasksApi.util.invalidateTags([
             { type: 'Task', id: data.id },
             { type: 'TaskList', id: 'LIST' },
+            { type: 'TaskComments', id: data.id },
           ])
         );
       }

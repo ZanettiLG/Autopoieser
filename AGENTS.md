@@ -28,8 +28,8 @@ agent-coder/
 │   │   ├── index.js       # Rotas /api/tasks e estáticos
 │   │   └── run.js         # Entry: npm run server
 │   ├── tasks/             # Lógica de tarefas
-│   │   ├── index.js       # createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued, appendEvent, getTaskLog
-│   │   ├── db.js          # SQLite (metadados: id, title, status, failure_reason?, created_at, updated_at)
+│   │   ├── index.js       # createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued, appendEvent, getTaskLog, getTaskComments, addComment
+│   │   ├── db.js          # SQLite (metadados: id, title, status, failure_reason?, created_at, updated_at; tabela task_comments: id, task_id, author, content, created_at)
 │   │   ├── storage.js     # Leitura/escrita de .md em ./tasks/{id}.md
 │   │   └── taskLog.js     # appendEvent(taskId, event), getTaskLog(taskId) – NDJSON em tasks/workspaces/{id}/agent.log
 │   ├── worker/            # Consumidor da fila
@@ -38,6 +38,7 @@ agent-coder/
 │   │   └── workerStatus.js # Persiste data/worker-status.json para GET /api/worker/status
 │   └── coder/             # Integração com agente (Cursor)
 │       ├── index.js       # createCoder(options), default coder
+│       ├── worktree.js    # Git worktree: createWorktree, mergeWorktree, removeWorktree (por tarefa)
 │       └── providers/     # BaseCoder, CursorCoder (spawn do CLI)
 ├── frontend/              # App React (Vite, MUI, Redux Toolkit, RTK Query)
 │   └── src/
@@ -60,7 +61,7 @@ agent-coder/
 | `worker` | `node src/worker/run.js` | Worker que consome a fila e executa o agente por tarefa. |
 | `build:frontend` | `cd frontend && npm run build` | Gera `frontend/dist` para produção. |
 
-**Desenvolvimento**: em um terminal `npm run server` (porta 3000); em outro `cd frontend && npm run dev` (Vite com proxy `/api` → Express).
+**Desenvolvimento**: em um terminal `npm run server` (porta 3000); em outro `cd frontend && npm run dev` (Vite com proxy `/api` → Express). Frontend e backend escutam em todas as interfaces (rede interna): acesse pelo IP da máquina (ex.: `http://192.168.x.x:5173` para o Vite; API e Socket.IO são repassados pelo proxy).
 
 ---
 
@@ -69,6 +70,8 @@ agent-coder/
 - `GET /api/tasks` – lista (metadados, sem body).
 - `GET /api/tasks/:id` – uma tarefa (com body).
 - `GET /api/tasks/:id/log` – log de eventos do agente para a tarefa (array NDJSON: started, chunk, done, error, worker_start, worker_end).
+- `GET /api/tasks/:id/comments` – lista de comentários da tarefa (ordenados por `created_at`); 404 se tarefa não existir.
+- `POST /api/tasks/:id/comments` – criar comentário; body: `{ content (string), author?: 'user'|'agent' }` (default `user`); 404 se tarefa não existir.
 - `POST /api/tasks` – criar; body: `{ title, body?, status? }`.
 - `PUT /api/tasks/:id` – atualizar; body: `{ title?, body?, status?, failure_reason? }`.
 - `DELETE /api/tasks/:id` – excluir.
@@ -85,8 +88,9 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 ## 5. Fila e worker
 
 - Tarefas com status **`queued`** são consumidas pelo worker (polling; intervalo configurável por `WORKER_POLL_MS`).
-- Para cada tarefa: status → `in_progress`, **appendEvent(taskId, { type: 'started' })**, workspace `tasks/workspaces/{taskId}` criado, **novo coder** via `createCoder({ workspace, outputFormat: 'stream' })`, **code(prompt, { onChunk, onDone })** com callbacks que chamam **appendEvent** (chunk, done, error). Ao terminar → `done`, em erro → `rejected` e evento `error` (e `failure_reason` na tarefa).
-- Cada execução do agente é **contexto limpo** (outro “chat”): um coder por tarefa, workspace isolado. Log do agente em `tasks/workspaces/{taskId}/agent.log` (NDJSON).
+- **Git worktree**: antes de rodar o agente, o worker cria um **git worktree** em `tasks/workspaces/{taskId}` com branch `agent/task-{taskId}` (via `src/coder/worktree.js`). O agente roda nesse worktree. Se a tarefa **concluir com sucesso** → commit das alterações no worktree (se houver), **merge** da branch no repositório principal, remoção do worktree e da branch. Se **falhar** → **removeWorktree** (worktree e branch removidos).
+- Para cada tarefa: status → `in_progress`, **appendEvent(taskId, { type: 'started' })**, **createWorktree(repoRoot, workspacePath, taskId)**, **novo coder** via `createCoder({ workspace, outputFormat: 'stream' })`, **code(prompt, { onChunk, onDone })** com callbacks que chamam **appendEvent** (chunk, done, error). Ao terminar → **mergeWorktree** (ou em erro **removeWorktree**), então status `done` e **addComment** (sucesso) ou `rejected`, **addComment** (falha).
+- Cada execução do agente é **contexto limpo** (outro “chat”): um coder por tarefa, workspace = worktree isolado. Log do agente em `tasks/workspaces/{taskId}/agent.log` (NDJSON).
 
 **Logs e diagnóstico do worker**
 
@@ -112,7 +116,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 - **Rotas**: `/` (board), `/tasks/:id` (board com detalhe da tarefa aberto – deep link).
 - **API**: `frontend/src/app/api/tasksApi.js` (baseUrl `/`; em dev o Vite faz proxy para o Express).
 - **Status**: labels e chips para `open`, `queued`, `in_progress`, `done`, `rejected`; botão “Enfileirar” no overlay de detalhe quando status é `open`. Atualização em tempo real via Socket.IO (invalidação de cache RTK Query nos eventos `task:updated` e `task:deleted`).
-- **Componentes**: `Board.jsx` (DndContext, colunas), `Column.jsx` (useDroppable), `DraggableCard.jsx` / `TaskCard.jsx`, `TaskDetailOverlay.jsx` (drawer com seção "Progresso do agente" – log via `getTaskLog`, polling a cada 3 s quando status = in_progress), `TaskFormOverlay.jsx` (modal). API: `getTaskLog` em `tasksApi.js`. Agrupamento por status: `groupTasksByStatus` e `STATUS_ORDER` em `statusLabels.js`.
+- **Componentes**: `Board.jsx` (DndContext, colunas), `Column.jsx` (useDroppable), `DraggableCard.jsx` / `TaskCard.jsx`, `TaskDetailOverlay.jsx` (drawer com seção "Progresso do agente" – log via `getTaskLog`, polling a cada 3 s quando status = in_progress – e seção "Comentários": lista de comentários e campo para novo comentário; comentários do agente aparecem ao concluir/rejeitar tarefa), `TaskFormOverlay.jsx` (modal). API: `getTaskLog`, `getTaskComments`, `addComment` em `tasksApi.js`. Agrupamento por status: `groupTasksByStatus` e `STATUS_ORDER` em `statusLabels.js`. Ao receber `task:updated` via Socket.IO, o cache de comentários da tarefa é invalidado para atualização em tempo real.
 
 ---
 
@@ -129,7 +133,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 
 ## 9. Ambiente
 
-- **Variáveis**: `CURSOR_API_KEY` (config do coder); `PORT` (servidor); `WORKER_POLL_MS` (opcional, intervalo do worker em ms); `SERVER_URL` (opcional, URL do servidor para o worker notificar broadcast, padrão `http://localhost:PORT`).
+- **Variáveis**: `CURSOR_API_KEY` (config do coder); `PORT` (servidor); `HOST` (opcional, interface do servidor; padrão `0.0.0.0` para aceitar conexões da rede interna); `WORKER_POLL_MS` (opcional, intervalo do worker em ms); `SERVER_URL` (opcional, URL do servidor para o worker notificar broadcast, padrão `http://localhost:PORT`).
 - **Arquivo `.env`** na raiz (não versionado).
 
 ---

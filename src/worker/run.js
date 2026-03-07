@@ -1,9 +1,9 @@
-const fs = require("fs");
 const { execSync } = require("node:child_process");
 require("dotenv").config();
 const path = require("path");
 const tasks = require("../tasks");
 const { createCoder } = require("../coder");
+const { createWorktree, mergeWorktree, removeWorktree } = require("../coder/worktree");
 const { DEFAULT_TASKS_DIR } = require("../tasks/db");
 const { cursorApiKey } = require("../config");
 const { logInfo, logError, getRecentLogLines } = require("./logger");
@@ -38,12 +38,8 @@ function isAgentInPath() {
   }
 }
 
-function getWorkspaceForTask(taskId) {
-  const dir = path.join(DEFAULT_TASKS_DIR, "workspaces", String(taskId));
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+function getWorkspacePathForTask(taskId) {
+  return path.join(DEFAULT_TASKS_DIR, "workspaces", String(taskId));
 }
 
 async function processNextTask() {
@@ -67,8 +63,10 @@ async function processNextTask() {
 
     if (!isAgentInPath()) {
       logError("Binary 'agent' not found in PATH");
-      tasks.appendEvent(task.id, { type: "error", text: "Binary 'agent' not found in PATH" });
-      tasks.updateTask(task.id, { status: "rejected", failure_reason: "Binary 'agent' not found in PATH" });
+      const msg = "Binary 'agent' not found in PATH";
+      tasks.appendEvent(task.id, { type: "error", text: msg });
+      tasks.updateTask(task.id, { status: "rejected", failure_reason: msg });
+      tasks.addComment(task.id, { author: "agent", content: msg });
       broadcastTaskUpdated(task.id);
       writeStatus({
         lastPollAt: new Date().toISOString(),
@@ -82,7 +80,30 @@ async function processNextTask() {
       return;
     }
 
-    const workspace = getWorkspaceForTask(task.id);
+    const repoRoot = process.cwd();
+    const workspacePath = getWorkspacePathForTask(task.id);
+    try {
+      createWorktree(repoRoot, workspacePath, task.id);
+    } catch (worktreeErr) {
+      const msg = worktreeErr.message || "Failed to create git worktree";
+      logError("createWorktree failed", worktreeErr);
+      tasks.appendEvent(task.id, { type: "error", text: msg });
+      tasks.updateTask(task.id, { status: "rejected", failure_reason: msg });
+      tasks.addComment(task.id, { author: "agent", content: msg });
+      broadcastTaskUpdated(task.id);
+      writeStatus({
+        lastPollAt: new Date().toISOString(),
+        lastTaskId: task.id,
+        lastTaskStatus: "rejected",
+        lastTaskAt: new Date().toISOString(),
+        lastError: msg,
+        recentLogLines: getRecentLogLines(),
+      });
+      tasks.appendEvent(task.id, { type: "worker_end", durationMs: Date.now() - startedAt });
+      return;
+    }
+
+    const workspace = workspacePath;
     const coder = createCoder({ workspace, outputFormat: "stream" });
     const prompt = task.body?.trim() || task.title || "Execute this task.";
 
@@ -104,8 +125,32 @@ async function processNextTask() {
     const { response } = coder.code(prompt, callbacks);
     await response;
     const durationMs = Date.now() - startedAt;
+    try {
+      mergeWorktree(repoRoot, workspacePath, task.id);
+    } catch (mergeErr) {
+      logError("mergeWorktree failed", mergeErr);
+      tasks.appendEvent(task.id, { type: "error", text: mergeErr.message });
+      removeWorktree(repoRoot, workspacePath, task.id);
+      tasks.updateTask(task.id, {
+        status: "rejected",
+        failure_reason: `Merge falhou: ${mergeErr.message}`,
+      });
+      tasks.addComment(task.id, { author: "agent", content: mergeErr.message });
+      broadcastTaskUpdated(task.id);
+      writeStatus({
+        lastPollAt: new Date().toISOString(),
+        lastTaskId: task.id,
+        lastTaskStatus: "rejected",
+        lastTaskAt: new Date().toISOString(),
+        lastError: mergeErr.message,
+        recentLogLines: getRecentLogLines(),
+      });
+      tasks.appendEvent(task.id, { type: "worker_end", durationMs });
+      return;
+    }
     tasks.appendEvent(task.id, { type: "worker_end", durationMs });
     tasks.updateTask(task.id, { status: "done" });
+    tasks.addComment(task.id, { author: "agent", content: "Tarefa concluída com sucesso." });
     broadcastTaskUpdated(task.id);
     logInfo(`Task ${task.id} done (${durationMs}ms).`);
     writeStatus({
@@ -119,6 +164,10 @@ async function processNextTask() {
     logError("processNextTask error", err);
     const durationMs = Date.now() - startedAt;
     if (task && task.id) {
+      const workspacePath = getWorkspacePathForTask(task.id);
+      try {
+        removeWorktree(process.cwd(), workspacePath, task.id);
+      } catch (_) {}
       const stderrText = err.stderr ? String(err.stderr).trim().slice(0, 2000) : "";
       const stdoutText = err.stdout ? String(err.stdout).trim().slice(0, 2000) : "";
       const detail = stderrText || stdoutText;
@@ -138,6 +187,7 @@ async function processNextTask() {
         status: "rejected",
         failure_reason: detail || err.message,
       });
+      tasks.addComment(task.id, { author: "agent", content: detail || err.message });
       broadcastTaskUpdated(task.id);
     }
     writeStatus({

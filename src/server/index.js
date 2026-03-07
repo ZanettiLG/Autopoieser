@@ -104,6 +104,38 @@ app.get("/api/tasks/:id/log", (req, res) => {
   }
 });
 
+app.get("/api/tasks/:id/comments", (req, res) => {
+  try {
+    const task = tasks.getTask(req.params.id);
+    if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
+    const comments = tasks.getTaskComments(req.params.id);
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/comments", (req, res) => {
+  try {
+    const task = tasks.getTask(req.params.id);
+    if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
+    const { content, author } = req.body ?? {};
+    const authorVal = author === "agent" ? "agent" : "user";
+    if (typeof content !== "string") {
+      return res.status(400).json({ error: "content é obrigatório (string)" });
+    }
+    const comment = tasks.addComment(req.params.id, {
+      content: typeof content === "string" ? content : "",
+      author: authorVal,
+    });
+    res.status(201).json(comment);
+    const io = req.app.get("io");
+    if (io) io.emit("task:updated", { id: task.id, task: tasks.getTask(task.id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const workerStatusPath = path.join(process.cwd(), "data", "worker-status.json");
 app.get("/api/worker/status", (_req, res) => {
   try {
@@ -163,13 +195,13 @@ if (fs.existsSync(frontendDist)) {
   app.use(express.static(publicDir));
 }
 
-function startServer(port = 3000) {
+function startServer(port = 3000, host = process.env.HOST || "0.0.0.0") {
   const server = http.createServer(app);
   const { Server } = require("socket.io");
   const io = new Server(server);
   app.set("io", io);
-  return server.listen(port, () => {
-    console.log(`Servidor em http://localhost:${port}`);
+  return server.listen(port, host, () => {
+    console.log(`Servidor em http://localhost:${port} (rede: http://${host}:${port})`);
   });
 }
 

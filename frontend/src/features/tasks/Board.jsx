@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   TouchSensor,
   useSensor,
@@ -11,6 +12,7 @@ import { AppBar, Toolbar, Typography, Box, CircularProgress, Alert } from '@mui/
 import { useGetTasksQuery, useUpdateTaskMutation } from '../../app/api/tasksApi';
 import { STATUS_ORDER, groupTasksByStatus } from './statusLabels';
 import Column from './Column';
+import TaskCard from './TaskCard';
 import TaskDetailOverlay from './TaskDetailOverlay';
 import TaskFormOverlay from './TaskFormOverlay';
 
@@ -26,6 +28,7 @@ function Board({ onSnackbar, openTaskId }) {
     status: 'open',
     taskId: null,
   });
+  const [activeTask, setActiveTask] = useState(null);
 
   useEffect(() => {
     if (openTaskId) setDetailTaskId(Number(openTaskId));
@@ -40,8 +43,14 @@ function Board({ onSnackbar, openTaskId }) {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   );
 
+  const handleDragStart = useCallback((event) => {
+    const task = event.active.data.current?.task;
+    setActiveTask(task ?? null);
+  }, []);
+
   const handleDragEnd = useCallback(
     (event) => {
+      setActiveTask(null);
       const { active, over } = event;
       if (!over) return;
       const task = active.data.current?.task;
@@ -110,7 +119,7 @@ function Board({ onSnackbar, openTaskId }) {
           </Typography>
         </Toolbar>
       </AppBar>
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <Box
           sx={{
             p: 2,
@@ -131,6 +140,20 @@ function Board({ onSnackbar, openTaskId }) {
             />
           ))}
         </Box>
+        <DragOverlay dropAnimation={null}>
+          {activeTask ? (
+            <Box
+              sx={{
+                cursor: 'grabbing',
+                boxShadow: 3,
+                transform: 'rotate(2deg)',
+                maxWidth: 280,
+              }}
+            >
+              <TaskCard task={activeTask} />
+            </Box>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       <TaskDetailOverlay
