@@ -17,7 +17,7 @@ import TaskDetailOverlay from './TaskDetailOverlay';
 import TaskFormOverlay from './TaskFormOverlay';
 
 /**
- * Board Kanban: 4 colunas por status, cards arrastáveis, overlays para detalhe e formulário.
+ * Board Kanban: 5 colunas por status (open, queued, in_progress, done, rejected), cards arrastáveis, overlays para detalhe e formulário.
  * openTaskId: quando vindo de /tasks/:id, abre o detalhe dessa tarefa.
  */
 function Board({ onSnackbar, openTaskId }) {

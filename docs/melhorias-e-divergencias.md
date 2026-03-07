@@ -4,6 +4,8 @@ Documento de pesquisa que cruza a base de código e a documentação do projeto,
 
 **Fontes cruzadas:** `docs/jornada-usuario-tarefas.md`, `docs/jornada-usuario-kanban.md`, `docs/direcionamento-produto.md`, `docs/pesquisa-jornada-tarefas.md`, `AGENTS.md`, `README.md`, código em `src/`, `frontend/src/`.
 
+**Método:** Leitura da documentação de produto e jornadas do usuário; inspeção do backend (server, tasks, worker), frontend (Board, overlays, API) e AGENTS.md; cruzamento para identificar onde a doc está atrás do código, onde há lacunas de UX e onde o produto pode evoluir.
+
 ---
 
 ## 1. Resumo executivo
@@ -16,6 +18,15 @@ Documento de pesquisa que cruza a base de código e a documentação do projeto,
 
 ---
 
+## 1.1 O que já está alinhado (doc ↔ código)
+
+- **README.md:** Já descreve 5 colunas, 5 status (`open`, `queued`, `in_progress`, `done`, `rejected`), `failure_reason` no detalhe, deep link `/tasks/:id`, criação/edição por overlay e Socket.IO. Alinhado ao produto atual.
+- **AGENTS.md:** API, status, worker, log por tarefa, comentários e `GET /api/worker/status` estão documentados; reflete a implementação.
+- **Enfileirar por drag:** Arrastar card para "Na fila" chama `PUT` com `status: 'queued'`; comportamento documentado na jornada Kanban e implementado corretamente.
+- **Board.jsx:** Comentário do componente atualizado para "5 colunas" (correção aplicada).
+
+---
+
 ## 2. Divergências: documentação vs implementação
 
 ### 2.1 Número de colunas e status no board
@@ -24,11 +35,11 @@ Documento de pesquisa que cruza a base de código e a documentação do projeto,
 |------|------------|----------------------|
 | **jornada-usuario-kanban.md** | "4 colunas" (Aberta, Na fila, Em progresso, Concluída) | O board tem **5 colunas**: inclui **Rejeitada** (`rejected`). |
 | **jornada-usuario-kanban.md** | "Colunas fixas: Aberta, Na fila, Em progresso, Concluída" | Falta listar **Rejeitada**. |
-| **Board.jsx** (comentário linha 19) | "4 colunas por status" | `STATUS_ORDER` e `groupTasksByStatus` usam 5 status; comentário desatualizado. |
+| **Board.jsx** (comentário) | "4 colunas por status" (antes) | Corrigido para 5 colunas; `STATUS_ORDER` e `groupTasksByStatus` usam 5 status. |
 
 **Impacto para o usuário:** A jornada não descreve a coluna "Rejeitada" nem o que acontece quando uma tarefa falha (onde ela aparece, que informação ver no detalhe). O produto já entrega isso; a doc fica atrás.
 
-**Recomendação:** Atualizar `jornada-usuario-kanban.md` para 5 colunas e incluir o status `rejected` em cenários, regras e fluxo. Corrigir o comentário em `Board.jsx` para "5 colunas".
+**Recomendação:** Atualizar `jornada-usuario-kanban.md` para 5 colunas e incluir o status `rejected` em cenários, regras e fluxo. ~~Corrigir o comentário em `Board.jsx` para "5 colunas".~~ **(feito)**
 
 ---
 
@@ -145,7 +156,7 @@ Estes pontos existem no produto mas não estão (ou estão pouco) descritos na j
 
 ### Código (comentários)
 
-- [ ] **Board.jsx:** Alterar comentário "4 colunas" para "5 colunas".
+- [x] **Board.jsx:** Alterar comentário "4 colunas" para "5 colunas". **(feito)**
 
 ### Produto/UX (avaliar prioridade)
 
@@ -164,3 +175,4 @@ Estes pontos existem no produto mas não estão (ou estão pouco) descritos na j
 - Direcionamento: [direcionamento-produto.md](direcionamento-produto.md)
 - Pesquisa frontend: [pesquisa-jornada-tarefas.md](pesquisa-jornada-tarefas.md)
 - Guia agentes: [AGENTS.md](../AGENTS.md)
+- Roadmap (itens priorizáveis): [Roadmap.md](Roadmap.md)
