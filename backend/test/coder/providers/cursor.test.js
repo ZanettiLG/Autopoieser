@@ -2,8 +2,8 @@
 
 const { describe, it, afterEach } = require("node:test");
 const assert = require("node:assert");
-const BaseCoder = require("./base");
-const CursorCoder = require("./cursor");
+const BaseCoder = require("../../../src/coder/providers/base");
+const CursorCoder = require("../../../src/coder/providers/cursor");
 
 const originalCode = BaseCoder.prototype.code;
 

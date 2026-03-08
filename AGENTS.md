@@ -76,12 +76,13 @@ agent-coder/
 - `GET /api/tasks/:id/log` – log de eventos do agente para a tarefa (array NDJSON: started, chunk, done, error, worker_start, worker_end).
 - `GET /api/tasks/:id/comments` – lista de comentários da tarefa (ordenados por `created_at`); 404 se tarefa não existir.
 - `POST /api/tasks/:id/comments` – criar comentário; body: `{ content (string), author?: 'user'|'agent' }` (default `user`); 404 se tarefa não existir.
-- `POST /api/tasks` – criar; body: `{ title, body?, status? }`.
-- `PUT /api/tasks/:id` – atualizar; body: `{ title?, body?, status?, failure_reason? }`.
+- `POST /api/tasks` – criar; body: `{ title, body?, status?, context? }`. `context` é um array de referências (ex.: `[{ type: 'file', path: 'src/foo.js' }, { type: 'git', scope: 'working' }]`). Tipos: `file`, `folder`, `codebase`, `docs`, `git`, `skill`, `rule`.
+- `PUT /api/tasks/:id` – atualizar; body: `{ title?, body?, status?, failure_reason?, context? }`.
 - `DELETE /api/tasks/:id` – excluir.
 - `POST /api/tasks/:id/queue` – enfileirar (status → `queued`).
 - `POST /api/internal/broadcast` – interno: emite evento Socket.IO (body `{ event, data }`); **apenas localhost** (403 fora).
 - `GET /api/worker/status` – status do worker: `alive` (último poll &lt; 60s), `lastPollAt`, `lastTaskId`, `lastTaskStatus`, `lastTaskAt`, `lastError`, `recentLogLines` (últimas ~100 linhas do log do worker). Dados lidos de `data/worker-status.json` (atualizado pelo worker).
+- `GET /api/repo/files` – lista arquivos e pastas do repositório (para o seletor de contexto no frontend). Query: `?path=src` (opcional). Retorna `{ path, entries: [{ path, type: 'file'|'folder', name }] }`. Exige que o processo rode a partir de um diretório dentro de um repositório git (senão 500).
 
 Status: `open`, `queued`, `in_progress`, `done`, `rejected`. Quando o worker falha, o status vai para `rejected` e a justificativa fica em `failure_reason` (resposta de `GET`/`PUT` inclui o campo quando existir).
 
@@ -93,7 +94,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 
 - Tarefas com status **`queued`** são consumidas pelo worker (polling; intervalo configurável por `WORKER_POLL_MS`).
 - **Git worktree**: antes de rodar o agente, o worker cria um **git worktree** em `tasks/workspaces/{taskId}` com branch `agent/task-{taskId}` (via `src/coder/worktree.js`). O agente roda nesse worktree. Se a tarefa **concluir com sucesso** → commit das alterações no worktree (se houver), **merge** da branch no repositório principal, remoção do worktree e da branch. Se **falhar** → **removeWorktree** (worktree e branch removidos).
-- Para cada tarefa: status → `in_progress`, **appendEvent(taskId, { type: 'started' })**, **createWorktree(repoRoot, workspacePath, taskId)**, **novo coder** via `createCoder({ workspace, outputFormat: 'stream' })`, **code(prompt, { onChunk, onDone })** com callbacks que chamam **appendEvent** (chunk, done, error). Ao terminar → **mergeWorktree** (ou em erro **removeWorktree**), então status `done` e **addComment** (sucesso) ou `rejected`, **addComment** (falha).
+- Para cada tarefa: status → `in_progress`, **appendEvent(taskId, { type: 'started' })**, **createWorktree(repoRoot, workspacePath, taskId)**, **buildContextBlock(repoRoot, task.context)** monta o bloco de contexto (arquivos, pastas, git diff, codebase, skills) a partir das referências da tarefa; o **prompt** enviado ao coder é `contextBlock + body` (ou só body se não houver contexto). **Novo coder** via `createCoder({ workspace, outputFormat: 'stream' })`, **code(prompt, { onChunk, onDone })** com callbacks que chamam **appendEvent** (chunk, done, error). Ao terminar → **mergeWorktree** (ou em erro **removeWorktree**), então status `done` e **addComment** (sucesso) ou `rejected`, **addComment** (falha).
 - Cada execução do agente é **contexto limpo** (outro “chat”): um coder por tarefa, workspace = worktree isolado. Log do agente em `tasks/workspaces/{taskId}/agent.log` (NDJSON).
 
 **Logs e diagnóstico do worker**
@@ -116,7 +117,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 ## 7. Frontend
 
 - **Stack**: React, MUI, Redux Toolkit, RTK Query, react-router-dom, react-markdown, remark-gfm, @dnd-kit (core, sortable, utilities) para drag-and-drop.
-- **Vista principal**: **Board Kanban** (rota `/`) com 5 colunas por status (Aberta, Na fila, Em progresso, Concluída, Rejeitada). Cards arrastáveis entre colunas; clique no card abre **detalhe em drawer**; “Adicionar card” por coluna abre **formulário em modal**. Mover card = `PUT /api/tasks/:id` com novo `status`. Tarefas rejeitadas exibem `failure_reason` no detalhe.
+- **Vista principal**: **Board Kanban** (rota `/`) com 5 colunas por status (Aberta, Na fila, Em progresso, Concluída, Rejeitada). Cards arrastáveis entre colunas; clique no card abre **detalhe em drawer**; “Adicionar card” por coluna abre **formulário em modal**. No formulário (criar/editar) há **contexto tipo Cursor**: botão “Adicionar @” para anexar referências (Arquivo, Pasta, Codebase, Git diff, Skill/Regras); as referências aparecem como chips e são enviadas no campo `context` da tarefa. No detalhe, o contexto anexado é exibido em chips. Mover card = `PUT /api/tasks/:id` com novo `status`. Tarefas rejeitadas exibem `failure_reason` no detalhe.
 - **Rotas**: `/` (board), `/tasks/:id` (board com detalhe da tarefa aberto – deep link).
 - **API**: `frontend/src/app/api/tasksApi.js` (baseUrl `/`; em dev o Vite faz proxy para o Express).
 - **Status**: labels e chips para `open`, `queued`, `in_progress`, `done`, `rejected`; botão “Enfileirar” no overlay de detalhe quando status é `open`. Atualização em tempo real via Socket.IO (invalidação de cache RTK Query nos eventos `task:updated` e `task:deleted`).
@@ -128,7 +129,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 
 - **Backend (Node)**: CommonJS; preferir **funções e composição** em vez de classes onde fizer sentido; manter `src/tasks` e `src/worker` sem side-effects desnecessários no load.
 - **Frontend (React)**: seguir padrões do projeto em `frontend/src` (features, app/store, app/api); evitar proliferação de boolean props; usar RTK Query para dados da API.
-- **Testes**: no frontend há Vitest e testes em `frontend/src` (ex.: `statusLabels.test.js`, `tasksApi.test.js`). Novas regras de negócio devem ter testes quando fizer sentido; não criar arquivos de exemplo em vez de testes.
+- **Testes**: **Backend** (TDD): testes em `backend/test/`, espelhando `backend/src/` (pastas `tasks/`, `server/`, `worker/`, `coder/`). Runner: Node.js `node:test`; descoberta automática via `node test/run-tests.js`. Executar: `cd backend && npm test`; cobertura: `cd backend && npm run test:coverage` (relatório em `backend/coverage/`). **Frontend**: Vitest e testes em `frontend/src` (ex.: `statusLabels.test.js`, `tasksApi.test.js`). Novas regras de negócio devem ter testes quando fizer sentido; não criar arquivos de exemplo em vez de testes.
 - **Documentação**: planos e decisões em `docs/`; não editar o plano em `.cursor/plans/` a menos que o usuário peça.
 - **Causa raiz**: ao corrigir bugs, identificar e corrigir a causa exata; não apenas contornar com fallbacks.
 - **Uso de código**: usar variáveis e funções já criadas ou removê-las se ficarem obsoletas.

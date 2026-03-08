@@ -157,6 +157,38 @@ function TaskDetailOverlay({ taskId, open, onClose, onEdit }) {
           </Typography>
         </Paper>
 
+        {Array.isArray(task.context) && task.context.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Contexto
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {task.context.map((ref, i) => (
+                <Chip
+                  key={i}
+                  size="small"
+                  variant="outlined"
+                  label={
+                    ref.type === 'file'
+                      ? `@file ${ref.path}`
+                      : ref.type === 'folder'
+                        ? `@folder ${ref.path}`
+                        : ref.type === 'codebase'
+                          ? '@codebase'
+                          : ref.type === 'git'
+                            ? `@git ${ref.scope || 'working'}`
+                            : ref.type === 'skill' || ref.type === 'rule'
+                              ? '@skill/regras'
+                              : ref.type === 'docs'
+                                ? (ref.url ? `@docs ${ref.url}` : `@docs ${ref.path || ''}`)
+                                : ref.type
+                  }
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
+
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
             Progresso do agente

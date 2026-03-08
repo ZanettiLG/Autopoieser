@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 export const tasksApi = createApi({
   reducerPath: 'tasksApi',
   baseQuery: fetchBaseQuery({ baseUrl: '/' }),
-  tagTypes: ['Task', 'TaskList', 'TaskComments', 'WorkerStatus'],
+  tagTypes: ['Task', 'TaskList', 'TaskComments', 'WorkerStatus', 'RepoFiles'],
   endpoints: (builder) => ({
     getTasks: builder.query({
       query: () => '/api/tasks',
@@ -104,6 +104,13 @@ export const tasksApi = createApi({
         { type: 'Task', id: taskId },
       ],
     }),
+    getRepoFiles: builder.query({
+      query: (path) => ({
+        url: '/api/repo/files',
+        params: path ? { path } : {},
+      }),
+      providesTags: ['RepoFiles'],
+    }),
   }),
 });
 
@@ -118,4 +125,5 @@ export const {
   useDeleteTaskMutation,
   useQueueTaskMutation,
   useAddCommentMutation,
+  useGetRepoFilesQuery,
 } = tasksApi;

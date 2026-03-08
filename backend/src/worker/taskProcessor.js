@@ -1,3 +1,5 @@
+const { buildContextBlock } = require("../tasks/contextBuilder");
+
 /**
  * TaskProcessor: runs one cycle of the queue (get next queued task → worktree → coder → merge/remove → notify).
  * All dependencies are injected for testability (DIP).
@@ -90,7 +92,9 @@ function createTaskProcessor(deps) {
       }
 
       const coder = createCoder({ workspace: workspacePath, outputFormat: "stream" });
-      const prompt = task.body?.trim() || task.title || "Execute this task.";
+      const contextBlock = buildContextBlock(repoRoot, task.context || []);
+      const bodyText = task.body?.trim() || task.title || "Execute this task.";
+      const prompt = contextBlock ? contextBlock + bodyText : bodyText;
 
       if (typeof coder.command === "function") {
         const rawCmd = coder.command(prompt);

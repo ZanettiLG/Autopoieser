@@ -4,6 +4,8 @@ const path = require("path");
 const fs = require("fs");
 const tasks = require("../tasks");
 const { createWorkerStatusReader, STATUS_FILE } = require("../worker/workerStatus");
+const { findGitRoot } = require("../coder/worktree");
+const { listRepoFiles } = require("./repoFiles");
 
 const workerStatusReader = createWorkerStatusReader(STATUS_FILE);
 
@@ -34,9 +36,30 @@ app.get("/api/tasks/:id", (req, res) => {
   }
 });
 
+const CONTEXT_TYPES = ["file", "folder", "codebase", "docs", "git", "skill", "rule"];
+
+function normalizeContext(raw) {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((ref) => ref && typeof ref === "object" && typeof ref.type === "string")
+    .map((ref) => {
+      const { type, path, scope, name, url } = ref;
+      const normalized = { type: String(type).toLowerCase() };
+      if (CONTEXT_TYPES.includes(normalized.type)) {
+        if (path != null) normalized.path = String(path);
+        if (scope != null) normalized.scope = String(scope);
+        if (name != null) normalized.name = String(name);
+        if (url != null) normalized.url = String(url);
+      }
+      return normalized;
+    })
+    .filter((ref) => CONTEXT_TYPES.includes(ref.type));
+}
+
 app.post("/api/tasks", (req, res) => {
   try {
-    const { title, body, status } = req.body ?? {};
+    const { title, body, status, context } = req.body ?? {};
     if (!title || typeof title !== "string" || !title.trim()) {
       return res.status(400).json({ error: "title é obrigatório" });
     }
@@ -44,6 +67,7 @@ app.post("/api/tasks", (req, res) => {
       title: title.trim(),
       body: typeof body === "string" ? body : "",
       status: status || "open",
+      context: normalizeContext(context),
     });
     res.status(201).json(task);
     const io = req.app.get("io");
@@ -55,12 +79,13 @@ app.post("/api/tasks", (req, res) => {
 
 app.put("/api/tasks/:id", (req, res) => {
   try {
-    const { title, body, status, failure_reason } = req.body ?? {};
+    const { title, body, status, failure_reason, context } = req.body ?? {};
     const task = tasks.updateTask(req.params.id, {
       ...(title !== undefined && { title: typeof title === "string" ? title.trim() : "" }),
       ...(body !== undefined && { body: typeof body === "string" ? body : "" }),
       ...(status !== undefined && { status }),
       ...(failure_reason !== undefined && { failure_reason: typeof failure_reason === "string" ? failure_reason : null }),
+      ...(context !== undefined && { context: normalizeContext(context) }),
     });
     if (!task) return res.status(404).json({ error: "Tarefa não encontrada" });
     res.json(task);
@@ -142,6 +167,17 @@ app.post("/api/tasks/:id/comments", (req, res) => {
 app.get("/api/worker/status", (_req, res) => {
   try {
     res.json(workerStatusReader.read());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/repo/files", (req, res) => {
+  try {
+    const repoRoot = findGitRoot(process.cwd());
+    const subPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+    const entries = listRepoFiles(repoRoot, subPath || ".");
+    res.json({ path: subPath || ".", entries });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

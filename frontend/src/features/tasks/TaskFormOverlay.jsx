@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Box,
   TextField,
@@ -12,11 +13,16 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  Chip,
+  Menu,
+  Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
 import { useSnackbar } from '../../app/SnackbarContext';
 import { getStatusLabel, STATUS_OPTIONS } from './statusLabels';
 import { useTaskForm } from './useTaskForm';
+import RepoFilePickerDialog from './RepoFilePickerDialog';
 
 /**
  * Formulário de criar/editar tarefa em overlay (modal). Usado no board Kanban.
@@ -31,11 +37,41 @@ function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSucc
     setStatus,
     body,
     setBody,
+    context,
+    setContext,
     handleSubmit,
     isSubmitting,
     isLoadingTask,
     isEdit,
   } = useTaskForm({ taskId, initialStatus, open });
+
+  const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState('file');
+
+  const handleAddContext = (ref) => {
+    setContext([...(context || []), ref]);
+  };
+
+  const handleRemoveContext = (index) => {
+    setContext(context.filter((_, i) => i !== index));
+  };
+
+  const openPicker = (mode) => {
+    setPickerMode(mode);
+    setContextMenuAnchor(null);
+    setPickerOpen(true);
+  };
+
+  const contextLabel = (ref) => {
+    if (ref.type === 'file') return `@file ${ref.path}`;
+    if (ref.type === 'folder') return `@folder ${ref.path}`;
+    if (ref.type === 'codebase') return '@codebase';
+    if (ref.type === 'git') return `@git ${ref.scope || 'working'}`;
+    if (ref.type === 'skill' || ref.type === 'rule') return '@skill/regras';
+    if (ref.type === 'docs') return ref.url ? `@docs ${ref.url}` : `@docs ${ref.path || ''}`;
+    return ref.type;
+  };
 
   const onFormSubmit = async (e) => {
     try {
@@ -85,6 +121,56 @@ function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSucc
             ))}
           </Select>
         </FormControl>
+        <Box sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Contexto (como no Cursor)
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            {Array.isArray(context) && context.map((ref, i) => (
+              <Chip
+                key={i}
+                label={contextLabel(ref)}
+                size="small"
+                onDelete={() => handleRemoveContext(i)}
+                sx={{ mb: 0.5 }}
+              />
+            ))}
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={(e) => setContextMenuAnchor(e.currentTarget)}
+              aria-haspopup="true"
+              aria-controls={contextMenuAnchor ? 'context-menu' : undefined}
+            >
+              Adicionar @
+            </Button>
+          </Box>
+        </Box>
+        <Menu
+          id="context-menu"
+          anchorEl={contextMenuAnchor}
+          open={Boolean(contextMenuAnchor)}
+          onClose={() => setContextMenuAnchor(null)}
+          MenuListProps={{ 'aria-labelledby': 'context-menu' }}
+        >
+          <MenuItem onClick={() => openPicker('file')}>Arquivo</MenuItem>
+          <MenuItem onClick={() => openPicker('folder')}>Pasta</MenuItem>
+          <MenuItem onClick={() => { handleAddContext({ type: 'codebase' }); setContextMenuAnchor(null); }}>
+            Codebase
+          </MenuItem>
+          <MenuItem onClick={() => { handleAddContext({ type: 'git', scope: 'working' }); setContextMenuAnchor(null); }}>
+            Git (diff)
+          </MenuItem>
+          <MenuItem onClick={() => { handleAddContext({ type: 'skill' }); setContextMenuAnchor(null); }}>
+            Skill / Regras
+          </MenuItem>
+        </Menu>
+        <RepoFilePickerDialog
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          mode={pickerMode}
+          onSelect={handleAddContext}
+        />
         <TextField
           fullWidth
           label="Conteúdo (Markdown)"
