@@ -4,7 +4,7 @@ require("dotenv").config();
 
 const tasks = require("../tasks");
 const { createCoder } = require("../coder");
-const { createWorktree, mergeWorktree, removeWorktree } = require("../coder/worktree");
+const { createWorktree, mergeWorktree, removeWorktree, findGitRoot } = require("../coder/worktree");
 const { DEFAULT_TASKS_DIR } = require("../tasks/db");
 const { cursorApiKey } = require("../config");
 const { logInfo, logError, getRecentLogLines } = require("./logger");
@@ -41,7 +41,7 @@ const taskProcessor = createTaskProcessor({
   cursorApiKey,
   isAgentInPath,
   getWorkspacePath: getWorkspacePathForTask,
-  repoRoot: process.cwd(),
+  repoRoot: findGitRoot(process.cwd()),
 });
 
 function run() {

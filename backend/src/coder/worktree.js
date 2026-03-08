@@ -13,6 +13,32 @@ function getWorktreeBranchName(taskId) {
   return `${BRANCH_PREFIX}${taskId}`;
 }
 
+/**
+ * Sobe a partir de startPath até encontrar o diretório que contém .git (raiz do repositório).
+ * Necessário quando o processo roda em subpasta (ex.: backend/) e o repo está na raiz do projeto.
+ * @param {string} [startPath] - Diretório de partida (default: process.cwd())
+ * @returns {string} Caminho absoluto da raiz do repositório git
+ */
+function findGitRoot(startPath) {
+  let current = path.resolve(startPath || process.cwd());
+  const fsRoot = path.parse(current).root;
+  while (true) {
+    const gitDir = path.join(current, ".git");
+    try {
+      if (fs.existsSync(gitDir) && fs.statSync(gitDir).isDirectory()) {
+        return current;
+      }
+    } catch (_) {
+      // statSync pode falhar em permissão; continuar subindo
+    }
+    const parent = path.dirname(current);
+    if (parent === current || parent === fsRoot) {
+      throw new Error(`Not a git repository (no .git found from ${startPath || process.cwd()})`);
+    }
+    current = parent;
+  }
+}
+
 function ensureIsGitRepo(repoRoot) {
   const gitDir = path.join(repoRoot, ".git");
   if (!fs.existsSync(gitDir)) {
@@ -135,6 +161,7 @@ function removeWorktree(repoRoot, worktreePath, taskId) {
 
 module.exports = {
   getWorktreeBranchName,
+  findGitRoot,
   createWorktree,
   mergeWorktree,
   removeWorktree,
