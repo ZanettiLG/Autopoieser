@@ -106,12 +106,12 @@ Tabela resumida do que a **documentação/jornada** descreve como experiência e
 
 | Onde | O que diz | Realidade no código |
 |------|------------|----------------------|
-| **pesquisa-jornada-tarefas.md** | "features/tasks/: TaskList.jsx, TaskDetail.jsx, TaskForm.jsx" | A aplicação **ativa** usa **Board.jsx**, Column, TaskCard, DraggableCard, **TaskDetailOverlay.jsx**, **TaskFormOverlay.jsx**. As rotas do App são apenas `/` e `/tasks/:id` (ambas com Board). Os arquivos TaskList.jsx, TaskDetail.jsx e TaskForm.jsx **não existem** no frontend atual (ou são legado não referenciado); a pesquisa descreve uma estrutura antiga. |
-| **AGENTS.md** | — | Já lista a estrutura real: Board, Column, TaskCard, DraggableCard, TaskDetailOverlay, TaskFormOverlay, statusLabels. |
+| **pesquisa-jornada-tarefas.md** | Estrutura features/tasks | A aplicação usa Board.jsx, Column, TaskCard, DraggableCard, TaskDetailOverlay.jsx, TaskFormOverlay.jsx, statusLabels. Rotas: `/` e `/tasks/:id`. TaskList, TaskDetail e TaskForm foram removidos; a pesquisa foi atualizada. |
+| **AGENTS.md** | — | Lista a estrutura: Board, Column, TaskCard, DraggableCard, TaskDetailOverlay, TaskFormOverlay, statusLabels. |
 
-**Impacto para o usuário:** Nenhum direto (a UI usada é o Kanban). Para quem lê a pesquisa, a estrutura parece ser lista; na prática a entrada é sempre o board.
+**Impacto para o usuário:** Nenhum (a UI é o Kanban).
 
-**Recomendação:** Atualizar `pesquisa-jornada-tarefas.md`: descrever a estrutura real (Board + overlays) como principal e remover ou marcar TaskList/TaskDetail/TaskForm como "vista lista (legado, não implementada nas rotas atuais)". Se em algum branch existir TaskForm.jsx (vista lista), incluir `rejected` em STATUS_OPTIONS para alinhar ao backend.
+**Status:** Componentes de vista lista (TaskList, TaskDetail, TaskForm) removidos; pesquisa e AGENTS.md alinhados à estrutura atual.
 
 ---
 
@@ -192,12 +192,12 @@ Estes pontos existem no produto mas não estão (ou estão pouco) descritos na j
 - [ ] **jornada-usuario-kanban.md:** Atualizar para 5 colunas; incluir Rejeitada em cenários, regras e fluxo; descrever Comentários, Progresso do agente e deep link.
 - [ ] **jornada-usuario-tarefas.md:** Nota ou atualização sobre os 5 status (doc legado lista).
 - [ ] **direcionamento-produto.md:** Incluir `rejected` no pipeline e na visibilidade (onde o usuário vê falha).
-- [ ] **pesquisa-jornada-tarefas.md:** Alinhar rotas ao que existe (`/`, `/tasks/:id`); explicar criação/edição por overlay; descrever estrutura real (Board + overlays) e marcar TaskList/TaskDetail/TaskForm como legado/não usados nas rotas.
+- [x] **pesquisa-jornada-tarefas.md:** Rotas e estrutura (Board + overlays) descritas; TaskList/TaskDetail/TaskForm removidos do código.
 
 ### Código (comentários e consistência)
 
 - [x] **Board.jsx:** Alterar comentário "4 colunas" para "5 colunas". **(feito)**
-- [ ] **TaskForm.jsx (vista lista):** Se em algum branch existir vista lista com TaskForm, adicionar status `rejected` em STATUS_OPTIONS para alinhar ao backend. No código atual (Board + overlays) não se aplica.
+- [x] **TaskForm (vista lista):** Removido; criação/edição apenas por TaskFormOverlay no Board.
 
 ### Produto/UX (avaliar prioridade)
 

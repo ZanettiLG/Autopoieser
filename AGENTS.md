@@ -27,15 +27,19 @@ agent-coder/
 │   ├── server/            # Express: API REST + servir frontend build
 │   │   ├── index.js       # Rotas /api/tasks e estáticos
 │   │   └── run.js         # Entry: npm run server
-│   ├── tasks/             # Lógica de tarefas
-│   │   ├── index.js       # createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued, appendEvent, getTaskLog, getTaskComments, addComment
-│   │   ├── db.js          # SQLite (metadados: id, title, status, failure_reason?, created_at, updated_at; tabela task_comments: id, task_id, author, content, created_at)
+│   ├── tasks/             # Lógica de tarefas (Repository + Service + composition root)
+│   │   ├── index.js       # Composition root: cria repositórios e TaskService; exporta createTask, getTask, listTasks, updateTask, deleteTask, enqueueTask, getNextQueued, appendEvent, getTaskLog, getTaskComments, addComment
+│   │   ├── db.js          # SQLite singleton (metadados: tasks, task_comments); getDb(), ensureTasksDir, funções de acesso
+│   │   ├── repositories.js # Factories: createTaskMetaRepository(db), createTaskBodyStorage(tasksDir), createCommentRepository(db), createTaskLogRepository(tasksDir)
+│   │   ├── taskService.js # createTaskService({ taskMetaRepo, taskBodyStorage, commentRepo, taskLogRepo }) – orquestração sem depender de módulos concretos
 │   │   ├── storage.js     # Leitura/escrita de .md em ./tasks/{id}.md
 │   │   └── taskLog.js     # appendEvent(taskId, event), getTaskLog(taskId) – NDJSON em tasks/workspaces/{id}/agent.log
-│   ├── worker/            # Consumidor da fila
-│   │   ├── run.js         # Entry: npm run worker; poll → pega queued → in_progress → agente → done
+│   ├── worker/            # Consumidor da fila (composition root em run.js)
+│   │   ├── run.js         # Entry: npm run worker; composition root (notifier, taskProcessor); setInterval(processNextTask)
+│   │   ├── taskProcessor.js # createTaskProcessor(deps): processNextTask() – worktree, coder, notifier, writeStatus
+│   │   ├── notifier.js    # createNotifier(serverUrl, getTask): notifyTaskUpdated(taskId) → POST /api/internal/broadcast
 │   │   ├── logger.js      # Log estruturado [worker] + timestamp + nível; buffer recentLogLines
-│   │   └── workerStatus.js # Persiste data/worker-status.json para GET /api/worker/status
+│   │   └── workerStatus.js # writeStatus(update); createWorkerStatusReader(path) para GET /api/worker/status
 │   └── coder/             # Integração com agente (Cursor)
 │       ├── index.js       # createCoder(options), default coder
 │       ├── worktree.js    # Git worktree: createWorktree, mergeWorktree, removeWorktree (por tarefa)
@@ -96,7 +100,7 @@ O servidor usa **Socket.IO**; eventos emitidos: `task:updated` (payload `{ id, t
 
 - **Console do worker**: saída com prefixo `[worker]`, timestamp ISO e nível (`info` ou `error`). Ex.: `[worker] 2025-03-07T12:00:00.000Z info Listening for queued tasks (poll every 5000 ms)`.
 - **Log por tarefa**: `tasks/workspaces/{taskId}/agent.log` — NDJSON, uma linha por evento. Eventos: `started` (agente iniciou), `chunk` (trecho de saída), `done` (agente finalizou), `error` (falha; pode ter `text`, `stack`, `stderr`), `worker_start` (worker começou a tarefa), `worker_end` (worker terminou; campo `durationMs`). Em falha, o último `error` contém a mensagem e, quando disponível, trecho de stderr do processo do agente.
-- **Status do worker**: o worker grava `data/worker-status.json` a cada poll e ao concluir/rejeitar tarefa. O servidor expõe `GET /api/worker/status` para ver se o worker está vivo (último poll &lt; 60s), última tarefa processada e últimas linhas do log em memória (`recentLogLines`).
+- **Status do worker**: o worker grava `data/worker-status.json` a cada poll e ao concluir/rejeitar tarefa. O servidor usa `createWorkerStatusReader(STATUS_FILE)` e a rota `GET /api/worker/status` devolve `reader.read()` (alive, lastPollAt, lastTaskId, etc.).
 
 ---
 

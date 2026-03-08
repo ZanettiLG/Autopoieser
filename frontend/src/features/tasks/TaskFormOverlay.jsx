@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -8,7 +7,6 @@ import {
   InputLabel,
   Select,
   CircularProgress,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -16,64 +14,37 @@ import {
   IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import {
-  useGetTaskQuery,
-  useCreateTaskMutation,
-  useUpdateTaskMutation,
-} from '../../app/api/tasksApi';
-import { STATUS_ORDER, getStatusLabel } from './statusLabels';
-
-const STATUS_OPTIONS = STATUS_ORDER.map((value) => ({ value, label: getStatusLabel(value) }));
+import { useSnackbar } from '../../app/SnackbarContext';
+import { getStatusLabel, STATUS_OPTIONS } from './statusLabels';
+import { useTaskForm } from './useTaskForm';
 
 /**
  * Formulário de criar/editar tarefa em overlay (modal). Usado no board Kanban.
  * taskId = null para criar; initialStatus = status da coluna ao clicar "Adicionar card".
  */
-function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSuccess, onSnackbar }) {
-  const isEdit = Boolean(taskId);
-  const [title, setTitle] = useState('');
-  const [status, setStatus] = useState(initialStatus);
-  const [body, setBody] = useState('');
+function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSuccess }) {
+  const { showSnackbar } = useSnackbar();
+  const {
+    title,
+    setTitle,
+    status,
+    setStatus,
+    body,
+    setBody,
+    handleSubmit,
+    isSubmitting,
+    isLoadingTask,
+    isEdit,
+  } = useTaskForm({ taskId, initialStatus, open });
 
-  const { data: task, isLoading: loadingTask } = useGetTaskQuery(taskId, {
-    skip: !isEdit || !open,
-  });
-  const [createTask, { isLoading: isCreating }] = useCreateTaskMutation();
-  const [updateTask, { isLoading: isUpdating }] = useUpdateTaskMutation();
-
-  useEffect(() => {
-    if (task) {
-      setTitle(task.title ?? '');
-      setStatus(task.status ?? 'open');
-      setBody(task.body ?? '');
-    }
-  }, [task]);
-
-  useEffect(() => {
-    if (open && !isEdit) {
-      setTitle('');
-      setStatus(initialStatus);
-      setBody('');
-    }
-  }, [open, isEdit, initialStatus]);
-
-  const isSubmitting = isCreating || isUpdating;
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const payload = { title: title.trim(), status, body };
+  const onFormSubmit = async (e) => {
     try {
-      if (isEdit) {
-        await updateTask({ id: Number(taskId), ...payload }).unwrap();
-        onSnackbar?.({ message: 'Tarefa atualizada', severity: 'success' });
-      } else {
-        await createTask(payload).unwrap();
-        onSnackbar?.({ message: 'Tarefa criada', severity: 'success' });
-      }
+      await handleSubmit(e);
+      showSnackbar({ message: isEdit ? 'Tarefa atualizada' : 'Tarefa criada', severity: 'success' });
       onSuccess?.();
       onClose?.();
     } catch (err) {
-      onSnackbar?.({
+      showSnackbar({
         message: err?.data?.error ?? 'Falha ao salvar',
         severity: 'error',
       });
@@ -81,7 +52,7 @@ function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSucc
   };
 
   const bodyContent = () => {
-    if (isEdit && loadingTask) {
+    if (isEdit && isLoadingTask) {
       return (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
@@ -89,7 +60,7 @@ function TaskFormOverlay({ open, taskId, initialStatus = 'open', onClose, onSucc
       );
     }
     return (
-      <form onSubmit={handleSubmit} id="task-form-overlay">
+      <form onSubmit={onFormSubmit} id="task-form-overlay">
         <TextField
           fullWidth
           label="Título"

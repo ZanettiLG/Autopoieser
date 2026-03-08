@@ -2,6 +2,9 @@ import { Card, CardContent, Typography } from '@mui/material';
 
 /**
  * Card de tarefa no board Kanban. Exibe título e opcionalmente data de atualização.
+ * @param {Object} props
+ * @param {{ id: number, title: string, updated_at?: string }} props.task
+ * @param {(task: object) => void} [props.onClick] - Chamado ao clicar no card; recebe a tarefa.
  */
 function TaskCard({ task, onClick }) {
   return (

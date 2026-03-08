@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { getStatusLabel, STATUS_LABELS, STATUS_ORDER, groupTasksByStatus } from './statusLabels';
+import {
+  getStatusLabel,
+  getStatusChipColor,
+  STATUS_LABELS,
+  STATUS_ORDER,
+  STATUS_OPTIONS,
+  groupTasksByStatus,
+} from './statusLabels';
 
 describe('statusLabels', () => {
   it('returns correct label for open', () => {
@@ -89,5 +96,40 @@ describe('statusLabels', () => {
     const out = groupTasksByStatus(tasks);
     expect(out.open).toHaveLength(1);
     expect(out.open[0].id).toBe(1);
+  });
+
+  describe('getStatusChipColor', () => {
+    it('returns success for done', () => {
+      expect(getStatusChipColor('done')).toBe('success');
+    });
+    it('returns primary for in_progress', () => {
+      expect(getStatusChipColor('in_progress')).toBe('primary');
+    });
+    it('returns warning for queued', () => {
+      expect(getStatusChipColor('queued')).toBe('warning');
+    });
+    it('returns error for rejected', () => {
+      expect(getStatusChipColor('rejected')).toBe('error');
+    });
+    it('returns default for open', () => {
+      expect(getStatusChipColor('open')).toBe('default');
+    });
+    it('returns default for unknown status', () => {
+      expect(getStatusChipColor('unknown')).toBe('default');
+    });
+  });
+
+  describe('STATUS_OPTIONS', () => {
+    it('has five options in pipeline order', () => {
+      expect(STATUS_OPTIONS).toHaveLength(5);
+      expect(STATUS_OPTIONS.map((o) => o.value)).toEqual(STATUS_ORDER);
+    });
+    it('each option has value and label from getStatusLabel', () => {
+      STATUS_OPTIONS.forEach((opt) => {
+        expect(opt).toHaveProperty('value');
+        expect(opt).toHaveProperty('label');
+        expect(opt.label).toBe(getStatusLabel(opt.value));
+      });
+    });
   });
 });

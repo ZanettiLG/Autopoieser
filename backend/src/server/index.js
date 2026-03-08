@@ -3,6 +3,9 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const tasks = require("../tasks");
+const { createWorkerStatusReader, STATUS_FILE } = require("../worker/workerStatus");
+
+const workerStatusReader = createWorkerStatusReader(STATUS_FILE);
 
 const app = express();
 app.use(express.json());
@@ -136,36 +139,9 @@ app.post("/api/tasks/:id/comments", (req, res) => {
   }
 });
 
-const workerStatusPath = path.join(process.cwd(), "data", "worker-status.json");
 app.get("/api/worker/status", (_req, res) => {
   try {
-    if (!fs.existsSync(workerStatusPath)) {
-      return res.json({
-        alive: false,
-        lastPollAt: null,
-        lastTaskId: null,
-        lastTaskStatus: null,
-        lastTaskAt: null,
-        lastError: null,
-        recentLogLines: [],
-      });
-    }
-    const content = fs.readFileSync(workerStatusPath, "utf8");
-    const data = JSON.parse(content);
-    const lastPollAt = data.lastPollAt || null;
-    const staleMs = 60000;
-    const alive = lastPollAt
-      ? Date.now() - new Date(lastPollAt).getTime() < staleMs
-      : false;
-    res.json({
-      alive,
-      lastPollAt: data.lastPollAt ?? null,
-      lastTaskId: data.lastTaskId ?? null,
-      lastTaskStatus: data.lastTaskStatus ?? null,
-      lastTaskAt: data.lastTaskAt ?? null,
-      lastError: data.lastError ?? null,
-      recentLogLines: Array.isArray(data.recentLogLines) ? data.recentLogLines : [],
-    });
+    res.json(workerStatusReader.read());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

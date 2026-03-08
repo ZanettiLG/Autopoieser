@@ -1,5 +1,3 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
@@ -9,91 +7,40 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { AppBar, Toolbar, Typography, Box, CircularProgress, Alert } from '@mui/material';
-import { useGetTasksQuery, useUpdateTaskMutation } from '../../app/api/tasksApi';
+import { useGetTasksQuery } from '../../app/api/tasksApi';
 import { STATUS_ORDER, groupTasksByStatus } from './statusLabels';
 import Column from './Column';
 import TaskCard from './TaskCard';
 import TaskDetailOverlay from './TaskDetailOverlay';
 import TaskFormOverlay from './TaskFormOverlay';
 import WorkerStatusIndicator from './WorkerStatusIndicator';
+import { useBoardState } from './useBoardState';
 
 /**
  * Board Kanban: 5 colunas por status (open, queued, in_progress, done, rejected), cards arrastáveis, overlays para detalhe e formulário.
  * openTaskId: quando vindo de /tasks/:id, abre o detalhe dessa tarefa.
  */
-function Board({ onSnackbar, openTaskId }) {
-  const navigate = useNavigate();
-  const [detailTaskId, setDetailTaskId] = useState(null);
-  const [formState, setFormState] = useState({
-    open: false,
-    status: 'open',
-    taskId: null,
-  });
-  const [activeTask, setActiveTask] = useState(null);
-
-  useEffect(() => {
-    if (openTaskId) setDetailTaskId(Number(openTaskId));
-  }, [openTaskId]);
-
-  const { data: tasks, isLoading, error } = useGetTasksQuery();
-  const [updateTask] = useUpdateTaskMutation();
-  const byStatus = groupTasksByStatus(tasks ?? []);
-
+function Board({ openTaskId }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   );
 
-  const handleDragStart = useCallback((event) => {
-    const task = event.active.data.current?.task;
-    setActiveTask(task ?? null);
-  }, []);
+  const {
+    detailTaskId,
+    formState,
+    activeTask,
+    handleCardClick,
+    handleAddCard,
+    handleEditFromDetail,
+    handleCloseDetail,
+    handleCloseForm,
+    handleDragStart,
+    handleDragEnd,
+  } = useBoardState(openTaskId);
 
-  const handleDragEnd = useCallback(
-    (event) => {
-      setActiveTask(null);
-      const { active, over } = event;
-      if (!over) return;
-      const task = active.data.current?.task;
-      if (!task) return;
-      const newStatus = over.id;
-      if (
-        typeof newStatus === 'string' &&
-        STATUS_ORDER.includes(newStatus) &&
-        newStatus !== task.status
-      ) {
-        updateTask({ id: task.id, status: newStatus })
-          .unwrap()
-          .then(() => onSnackbar?.({ message: 'Tarefa movida', severity: 'success' }))
-          .catch((err) =>
-            onSnackbar?.({
-              message: err?.data?.error ?? 'Falha ao mover tarefa',
-              severity: 'error',
-            })
-          );
-      }
-    },
-    [updateTask, onSnackbar]
-  );
-
-  const handleCardClick = useCallback((task) => {
-    setDetailTaskId(task?.id ?? null);
-  }, []);
-
-  const handleAddCard = useCallback((status) => {
-    setFormState({ open: true, status, taskId: null });
-  }, []);
-
-  const handleEditFromDetail = useCallback((taskId) => {
-    setDetailTaskId(null);
-    setFormState((s) => ({ ...s, open: true, taskId }));
-  }, []);
-
-  const handleCloseDetail = useCallback(() => {
-    setDetailTaskId(null);
-    if (openTaskId) navigate('/', { replace: true });
-  }, [openTaskId, navigate]);
-  const handleCloseForm = useCallback(() => setFormState((s) => ({ ...s, open: false })), []);
+  const { data: tasks, isLoading, error } = useGetTasksQuery();
+  const byStatus = groupTasksByStatus(tasks ?? []);
 
   if (isLoading) {
     return (
@@ -163,7 +110,6 @@ function Board({ onSnackbar, openTaskId }) {
         open={Boolean(detailTaskId)}
         onClose={handleCloseDetail}
         onEdit={handleEditFromDetail}
-        onSnackbar={onSnackbar}
       />
 
       <TaskFormOverlay
@@ -172,7 +118,6 @@ function Board({ onSnackbar, openTaskId }) {
         initialStatus={formState.status}
         onClose={handleCloseForm}
         onSuccess={() => {}}
-        onSnackbar={onSnackbar}
       />
     </>
   );

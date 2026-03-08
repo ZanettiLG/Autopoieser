@@ -2,7 +2,7 @@
 
 Itens derivados do documento [melhorias-e-divergencias.md](melhorias-e-divergencias.md). Prioridade a definir com o time/produto.
 
-**Última atualização:** Março 2026 – itens do plano "Melhorias e divergências" implementados (documentação, TaskForm.jsx, indicador worker, optimistic update, feedback enfileirar, doc acessibilidade-responsividade).
+**Última atualização:** Março 2026 – itens do plano "Melhorias e divergências" implementados (documentação, indicador worker, optimistic update, feedback enfileirar, doc acessibilidade-responsividade). Vista lista removida (TaskList, TaskDetail, TaskForm).
 
 ---
 
@@ -11,13 +11,13 @@ Itens derivados do documento [melhorias-e-divergencias.md](melhorias-e-divergenc
 - [x] **jornada-usuario-kanban.md:** Atualizar para 5 colunas; incluir Rejeitada em cenários, regras e fluxo; descrever Comentários, Progresso do agente e deep link.
 - [x] **jornada-usuario-tarefas.md:** Nota ou atualização sobre os 5 status (doc legado lista).
 - [x] **direcionamento-produto.md:** Incluir `rejected` no pipeline e na visibilidade (onde o usuário vê falha).
-- [x] **pesquisa-jornada-tarefas.md:** Alinhar rotas (`/`, `/tasks/:id`); explicar criação/edição por overlay; descrever estrutura real (Board + overlays) e marcar TaskList/TaskDetail/TaskForm como legado/não usados nas rotas.
+- [x] **pesquisa-jornada-tarefas.md:** Rotas e estrutura (Board + overlays); TaskList/TaskDetail/TaskForm removidos.
 
 ---
 
 ## Código (consistência)
 
-- [x] **TaskForm.jsx:** Incluir status `rejected` em STATUS_OPTIONS para alinhar ao backend.
+- [x] **Vista lista:** TaskList, TaskDetail e TaskForm removidos; criação/edição apenas por overlay no Board.
 
 ---
 

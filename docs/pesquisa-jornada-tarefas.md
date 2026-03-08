@@ -21,7 +21,7 @@ Pesquisa orientada pela jornada do usuário documentada em `jornada-usuario-tare
 ### Estrutura de pastas
 
 - **app/**: `store.js` (configureStore), `api/tasksApi.js` (createApi), `App.jsx`, `main.jsx`.
-- **features/tasks/**: Estrutura atual da vista principal: `Board.jsx`, `Column.jsx`, `TaskCard.jsx`, `DraggableCard.jsx`, `TaskDetailOverlay.jsx`, `TaskFormOverlay.jsx`, `statusLabels.js`. Os arquivos `TaskList.jsx`, `TaskDetail.jsx` e `TaskForm.jsx` existem no código mas **não são usados nas rotas atuais** (vista lista/legado); a entrada é sempre o board.
+- **features/tasks/**: Vista principal: `Board.jsx`, `Column.jsx`, `TaskCard.jsx`, `DraggableCard.jsx`, `TaskDetailOverlay.jsx`, `TaskFormOverlay.jsx`, `statusLabels.js`. A entrada é sempre o board Kanban.
 - **Rotas**: definidas em `App.jsx` com `react-router-dom`: apenas **`/`** e **`/tasks/:id`**. Criação e edição são feitas por **overlay** no board (modal/drawer), conforme [jornada-usuario-kanban.md](jornada-usuario-kanban.md). As rotas `/tasks/new` e `/tasks/:id/edit` não estão implementadas.
 
 ### Markdown no detalhe

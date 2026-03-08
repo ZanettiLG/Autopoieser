@@ -14,6 +14,28 @@ export function getStatusLabel(status) {
 }
 
 /**
+ * Cor do Chip MUI por status (exibição consistente no board e detalhes).
+ * @param {string} status
+ * @returns {'success'|'primary'|'warning'|'error'|'default'}
+ */
+export function getStatusChipColor(status) {
+  const map = {
+    done: 'success',
+    in_progress: 'primary',
+    queued: 'warning',
+    rejected: 'error',
+    open: 'default',
+  };
+  return map[status] ?? 'default';
+}
+
+/** Opções para selects de status: { value, label } em ordem do pipeline. */
+export const STATUS_OPTIONS = STATUS_ORDER.map((value) => ({
+  value,
+  label: getStatusLabel(value),
+}));
+
+/**
  * Agrupa tarefas por status para as colunas do Kanban.
  * @param {Array<{ id: number, status: string, [key: string]: unknown }>} tasks
  * @returns {Record<string, typeof tasks>}

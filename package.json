@@ -2,26 +2,24 @@
   "name": "agent-coder",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.js",
+  "private": true,
   "scripts": {
-    "test": "node --test src/tasks/taskLog.test.js src/coder/providers/cursor.test.js",
+    "dev": "concurrently -n server,frontend \"npm run dev:server\" \"npm run dev:frontend\"",
+    "dev:server": "cd backend && npm run server",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "concurrently -n server,worker \"npm run start:server\" \"npm run start:worker\"",
+    "start:server": "cd backend && npm run server",
+    "start:worker": "cd backend && npm run worker",
+    "test": "concurrently -n backend,frontend \"npm run test:backend\" \"npm run test:frontend\"",
+    "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm run test",
     "test:coverage": "cd frontend && npm run test:coverage",
-    "start": "node src/server/run.js",
-    "server": "node src/server/run.js",
-    "worker": "node src/worker/run.js",
-    "frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "better-sqlite3": "^11.6.0",
-    "dotenv": "^17.3.1",
-    "express": "^4.21.0",
-    "skills": "^1.4.4",
-    "socket.io": "^4.8.0"
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }

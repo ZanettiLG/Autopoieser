@@ -4,6 +4,7 @@ import TaskCard from './TaskCard';
 
 /**
  * Envolve TaskCard com useDraggable para arrastar entre colunas no board.
+ * Repassa onCardClick ao TaskCard como onClick(task).
  */
 function DraggableCard({ task, onCardClick }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
