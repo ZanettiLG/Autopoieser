@@ -4,13 +4,13 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
+    "test": "node test/run-tests.js",
     "start": "node src/server/run.js",
     "server": "node src/server/run.js",
     "worker": "node src/worker/run.js",
     "dev:server": "nodemon src/server/run.js",
     "dev:worker": "nodemon src/worker/run.js",
     "dev": "concurrently -n server,worker \"npm run dev:server\" \"npm run dev:worker\"",
-    "test": "node test/run-tests.js",
     "test:coverage": "c8 --src src --reporter=text --reporter=html --reporter=lcov node test/run-tests.js"
   },
   "keywords": [],
